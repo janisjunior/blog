@@ -44,6 +44,12 @@ public class BlogTests
         var match = await checker.CheckAsync(g, default); Assert.True(match.Published); Assert.EndsWith("/blog/second", match.Url);
         Assert.Contains("/blog?page=1", handler.Requests); var count = handler.Requests.Count; await checker.CheckAsync(g, default); Assert.Equal(count, handler.Requests.Count);
     }
+    [Fact] public async Task NetworkTimeoutIsNotMistakenForUserCancellation()
+    {
+        await using var env = await TestEnvironment.CreateAsync(); await env.PrepareAsync(); env.Blog.Timeout = true;
+        var gallery = (await env.Content.GalleriesAsync())[0]; var error = await Assert.ThrowsAsync<InvalidOperationException>(() => env.Content.GenerateAsync(gallery.Id, false, true, null, null, default));
+        Assert.Contains("czas oczekiwania", error.Message); Assert.Empty(env.Ai.Calls); Assert.True((await env.Content.GalleriesAsync()).Single(x => x.Id == gallery.Id).BlogBlocked);
+    }
     [Theory][InlineData(false, true)][InlineData(false, false)][InlineData(true, false)]
     public async Task PublishedPossibleAndFailedChecksBlockAiBeforeAnyExpense(bool failure, bool published)
     {

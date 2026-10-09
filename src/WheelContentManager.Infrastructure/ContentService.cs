@@ -123,10 +123,10 @@ public sealed class ContentService(IDbContextFactory<ContentDb> factory, IEnumer
         {
             var result = await blog.CheckAsync(g, ct); g.BlogCheckedAt = DateTimeOffset.UtcNow; g.BlogStatus = result.Message; g.ExistingBlogUrl = result.Url; g.BlogBlocked = result.Published || result.PossibleDuplicate; await db.SaveChangesAsync(ct); return result;
         }
-        catch (Exception e) when (e is not OperationCanceledException)
+        catch (Exception e) when (e is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             g.BlogCheckedAt = null; g.BlogBlocked = true; g.BlogStatus = "Nie udało się sprawdzić /blog — generowanie zablokowane"; await db.SaveChangesAsync(ct);
-            throw new InvalidOperationException(g.BlogStatus + ". " + SafeError(e));
+            throw new InvalidOperationException(g.BlogStatus + ". " + (e is OperationCanceledException ? "Przekroczono czas oczekiwania na stronę." : SafeError(e)));
         }
     }
     private IAiProvider Provider(AppSettings s) => aiProviders.Single(x => x.Name == s.AiProvider);

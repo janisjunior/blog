@@ -28,7 +28,14 @@ public sealed class SiteClient(HttpClient http)
     {
         for (int i = 0; ; i++)
         {
-            using var response = await http.GetAsync(uri, ct);
+            HttpResponseMessage downloaded;
+            try { downloaded = await http.GetAsync(uri, ct); }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                if (i < 2) { await Task.Delay(TimeSpan.FromSeconds(2 + i * 3), ct); continue; }
+                throw new InvalidOperationException($"Przekroczono czas oczekiwania na {uri.Host}{uri.AbsolutePath}. Kontrola źródła nie jest kompletna.");
+            }
+            using var response = downloaded;
             if (response.IsSuccessStatusCode) return await response.Content.ReadAsStringAsync(ct);
             if (i < 2 && ((int)response.StatusCode == 429 || (int)response.StatusCode >= 500)) { await Task.Delay(TimeSpan.FromSeconds(Math.Clamp(response.Headers.RetryAfter?.Delta?.TotalSeconds ?? 2 + i * 3, 1, 30)), ct); continue; }
             throw new InvalidOperationException($"Źródło {uri.Host}: HTTP {(int)response.StatusCode}. Bez obchodzenia kontroli dostępu.");
@@ -78,6 +85,7 @@ public sealed class SiteClient(HttpClient http)
             if (html.Contains("captcha", StringComparison.OrdinalIgnoreCase) && html.Length < 30000) throw new InvalidOperationException("Strona wymaga CAPTCHA. Pobieranie zatrzymano.");
             return html;
         }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested) { throw new InvalidOperationException($"Przekroczono czas oczekiwania na {uri.Host}. Spróbuj ponownie; nie można potwierdzić kompletności źródła."); }
         finally { lastRequest = DateTime.UtcNow; gate.Release(); }
     }
 }

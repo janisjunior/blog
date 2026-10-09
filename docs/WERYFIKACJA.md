@@ -5,19 +5,23 @@
 - Zainstalowano oficjalny SDK .NET 10.0.401; SHA512 archiwum zgadza się z metadanymi wydania Microsoft.
 - `scripts/setup-cloud.sh`: odtwarzanie zależności z lockfile, kompilacja wszystkich siedmiu projektów (również WPF przez EnableWindowsTargeting), testy.
 - Kompilacja: 0 błędów, 0 ostrzeżeń.
-- 68 testów: 68 zaliczonych, 0 niezaliczonych, 0 pominiętych. Testy sprawdzają migracje SQLite, deduplikację, korekty, osie i rozmiary, pełne sekcje DOCX, prompty, JSON, intro, jakość, podobieństwo, kontrakty HTTP OpenAI/Anthropic, generowanie PL/EN z mock AI i obrazami, ograniczenia prób/kosztów, brak zużycia galerii w dry-run, historię regenerowania, dokumenty i zdjęcia w DOCX/HTML/TXT/ZIP, XML harmonogramu, blokadę procesów, warunki pełnego powiadomienia oraz jego niepewny stan i ręczne potwierdzenie.
+- 69 testów: 69 zaliczonych, 0 niezaliczonych, 0 pominiętych. Testy sprawdzają migracje SQLite, deduplikację, korekty, osie i rozmiary, pełne sekcje DOCX, prompty, JSON, intro, jakość, podobieństwo, kontrakty HTTP OpenAI/Anthropic, generowanie PL/EN z mock AI i obrazami, ograniczenia prób/kosztów, brak zużycia galerii w dry-run, historię regenerowania, dokumenty i zdjęcia w DOCX/HTML/TXT/ZIP, XML harmonogramu, blokadę procesów, warunki pełnego powiadomienia oraz jego niepewny stan i ręczne potwierdzenie.
 - Testy /blog: wszystkie trzy rzeczywiste struktury HTML, paginacja, wspólne zdjęcia, możliwy duplikat, pomijanie nawigacji i polecanych wpisów, błąd sieci i brak kosztu AI przy blokadzie. Test pełnego klienta HTTP wykrywa wpis z drugiej strony i sprawdza, że niepełny skan nie trafia do cache.
 - Testy na lokalnych fragmentach rzeczywistego HTML wszystkich trzech marek. Oddzielna syntetyczna próbka nie jest przedstawiana jako źródło produkcyjne.
 - Rzeczywista synchronizacja: JR 1465 galerii, Concaver 1115, Vesser 139; łącznie 2719. Pierwszy przebieg pobrał szczegóły 9 galerii, parametry, pełne URL zdjęć i odpowiednie dane produktów.
 - Druga rzeczywista synchronizacja: 0 nowych rekordów dla każdej marki; liczba galerii nie wzrosła. Odczyt prawdziwych galerii nie wymagał AI ani wysyłania maili.
 - Publikacja samodzielnych aplikacji Desktop i Worker dla `win-x64`. Pliki EXE i zależności można przygotować na Linux, lecz nie uruchomić tutaj interfejsu Windows.
 
+## Wykonane przez GitHub Actions na Windows
+
+[Uruchomienie dla pierwszej kompletnej implementacji](https://github.com/janisjunior/blog/actions/runs/37914282313) zakończyło się sukcesem: kompilacja, testy, publikacja samodzielnej paczki Windows, uruchomienie Workera z nową bazą SQLite, kompilacja instalatora Inno Setup i zapis paczki ZIP oraz Setup.exe jako artefakt. To potwierdza automatyczne budowanie i start Workera na Windows, lecz nie zastępuje ręcznego scenariusza WPF na Windows 11. Późniejsze poprawki timeoutów i skrócenia kontroli po ścisłym dopasowaniu wymagają kolejnego przebiegu CI.
+
 ## Niewykonane i warunki pełnego odbioru
 
 - Nie dostarczono `Wpisy na bloga.docx`. Importer i trzy oddzielne szablony istnieją, ale pełna zgodność redakcyjna z tym dokumentem pozostaje niezweryfikowana. Domyślne prompty wymagają potwierdzenia i nie uruchamiają generowania samodzielnie.
 - Nie było kluczy OpenAI/Anthropic ani ustawień SMTP w środowisku. Nie wykonano płatnych żądań AI i nie wysłano rzeczywistego maila. Mocki nie dowodzą jakości artykułów ani dostępności danego modelu.
-- Nie uruchomiono WPF na Windows 11; nie sprawdzono ręcznie interfejsu, DPAPI, rejestracji rzeczywistego zadania ani pełnego cyklu przy zamkniętym UI.
-- Przygotowano Inno Setup i workflow GitHub Actions dla Windows. Sam skrypt instalatora nie oznacza, że instalator został zbudowany i sprawdzony w tej maszynie Linux.
+- Nie uruchomiono ręcznie WPF na Windows 11; nie sprawdzono ręcznie interfejsu, DPAPI, rejestracji rzeczywistego zadania ani pełnego cyklu przy zamkniętym UI.
+- Instalator zbudowano automatycznie na runnerze Windows; nie przeprowadzono jego ręcznej instalacji na Windows 11.
 - Nie przeprowadzono ręcznej oceny sześciu gotowych tekstów, powiadomienia z ZIP i kolejnego uruchomienia Harmonogramu Windows. To końcowy scenariusz odbioru po konfiguracji.
 
 ## Próba na Windows 11

@@ -125,4 +125,4 @@ internal sealed class TestEnvironment : IAsyncDisposable
     public async ValueTask DisposeAsync() { await Services.DisposeAsync(); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); Directory.Delete(Root, true); }
 }
 
-internal sealed class MockBlog : IBlogPublicationChecker { public BlogCheck Result { get; set; } = new(false, false, null, "test"); public bool Fail { get; set; } public Task<BlogCheck> CheckAsync(Gallery g, CancellationToken ct) => Fail ? throw new HttpRequestException("test") : Task.FromResult(Result); }
+internal sealed class MockBlog : IBlogPublicationChecker { public BlogCheck Result { get; set; } = new(false, false, null, "test"); public bool Timeout { get; set; } public bool Fail { get; set; } public Task<BlogCheck> CheckAsync(Gallery g, CancellationToken ct) => Timeout ? throw new TaskCanceledException("timeout") : Fail ? throw new HttpRequestException("test") : Task.FromResult(Result); }

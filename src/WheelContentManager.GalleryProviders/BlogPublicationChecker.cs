@@ -8,8 +8,11 @@ public sealed record PublishedPost(string Url, string Text, HashSet<string> Refe
 public sealed class BlogPublicationChecker(SiteClient client) : IBlogPublicationChecker
 {
     private readonly Dictionary<WheelBrand, (DateTimeOffset Time, IReadOnlyList<PublishedPost> Posts)> cache = [];
+    private readonly Dictionary<string, (DateTimeOffset Time, BlogCheck Result)> confirmed = [];
     public async Task<BlogCheck> CheckAsync(Gallery gallery, CancellationToken ct)
     {
+        var key = gallery.Brand + ":" + Normalization.Url(gallery.Url);
+        if (confirmed.TryGetValue(key, out var previous) && DateTimeOffset.UtcNow - previous.Time <= TimeSpan.FromMinutes(15)) return previous.Result;
         if (!cache.TryGetValue(gallery.Brand, out var snapshot) || DateTimeOffset.UtcNow - snapshot.Time > TimeSpan.FromMinutes(15))
         {
             var host = gallery.Brand switch { WheelBrand.JR => "jr-wheels.com", WheelBrand.Concaver => "concaverwheels.com", _ => "vesserforged.com" };
@@ -27,10 +30,20 @@ public sealed class BlogPublicationChecker(SiteClient client) : IBlogPublication
             }
             if (urls.Count == 0) throw new InvalidOperationException("Nie znaleziono wpisów /blog; nie można potwierdzić braku duplikatu.");
             var posts = new List<PublishedPost>();
-            foreach (var url in urls) posts.Add(ParsePost(await client.GetAsync(new(url), false, ct), new(url)));
+            foreach (var url in urls)
+            {
+                var post = ParsePost(await client.GetAsync(new(url), false, ct), new(url)); posts.Add(post);
+                var exact = Match(gallery, [post]);
+                if (exact.Published)
+                {
+                    var found = exact with { Message = exact.Message + " · potwierdzone dopasowanie" };
+                    confirmed[key] = (DateTimeOffset.UtcNow, found); return found;
+                }
+            }
             snapshot = (DateTimeOffset.UtcNow, posts); cache[gallery.Brand] = snapshot;
         }
-        return Match(gallery, snapshot.Posts);
+        var result = Match(gallery, snapshot.Posts);
+        return result with { Message = result.Message + $" · sprawdzono {snapshot.Posts.Count} wpisów" };
     }
     private static HtmlDocument Document(string html) { var doc = new HtmlDocument(); doc.LoadHtml(html); return doc; }
     private static bool IsList(Uri uri) => Regex.IsMatch(uri.AbsolutePath.TrimEnd('/'), @"^/blog(?:/\d+)?$");

@@ -154,7 +154,16 @@ public partial class MainViewModel : ObservableObject
         if (SelectedPreparedArticle == null) return; var id = SelectedPreparedArticle.Id;
         await RefreshAsync(); SelectedArticle = Articles.FirstOrDefault(a => a.Id == id); SelectedTab = 2;
     });
-    [RelayCommand] private Task StartPreparation() => RunAsync(async () => { OperationSession.Resume(paths); await ConfigureBackgroundAsync(); });
+    [RelayCommand] private Task StartPreparation() => RunAsync(async () =>
+    {
+        if (OperationSession.Paused(paths))
+            while (OperationSession.IsRunning(paths))
+            {
+                Status = "Oczekiwanie na zakończenie anulowania przed wznowieniem…";
+                await Task.Delay(250, Token);
+            }
+        OperationSession.Resume(paths); await ConfigureBackgroundAsync();
+    });
     private async Task RefreshAsync()
     {
         var selected = SelectedArticle?.Id; var gallery = SelectedGallery?.Id;

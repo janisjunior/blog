@@ -33,21 +33,22 @@ public sealed class ContentService(IDbContextFactory<ContentDb> factory, IEnumer
     {
         using var gate = OperationLock.Acquire(Path.Combine(paths.Root, "operation.lock")); return await SyncInternalAsync(progress, ct);
     }
-    private async Task<string> SyncInternalAsync(IProgress<string>? progress, CancellationToken ct)
+    private async Task<string> SyncInternalAsync(IProgress<string>? progress, CancellationToken ct, bool verifyLoadedBlogs = true, IReadOnlySet<WheelBrand>? onlyBrands = null)
     {
         var report = new List<string>();
-        foreach (var provider in galleries)
+        foreach (var provider in galleries.Where(p => onlyBrands == null || onlyBrands.Contains(p.Brand)))
         {
             ct.ThrowIfCancellationRequested(); progress?.Report($"Synchronizacja {provider.Brand.Name()}…");
             try
             {
                 var found = await provider.DiscoverAsync(ct); int added = 0;
                 await using var db = await factory.CreateDbContextAsync(ct);
+                var existing = (await db.FullGalleries.Where(g => g.Brand == provider.Brand).ToListAsync(ct)).ToDictionary(g => g.ExternalId);
                 foreach (var g in found)
                 {
                     g.Url = Normalization.Url(g.Url); g.ExternalId = Normalization.Url(g.Url);
-                    var old = await db.FullGalleries.SingleOrDefaultAsync(x => x.Brand == g.Brand && x.ExternalId == g.ExternalId, ct);
-                    if (old == null) { db.Galleries.Add(g); added++; }
+                    existing.TryGetValue(g.ExternalId, out var old);
+                    if (old == null) { db.Galleries.Add(g); existing[g.ExternalId] = g; added++; }
                     else
                     {
                         old.LastChecked = DateTimeOffset.UtcNow; old.ListingOrder = g.ListingOrder; old.ThumbnailUrl ??= g.ThumbnailUrl;
@@ -58,7 +59,7 @@ public sealed class ContentService(IDbContextFactory<ContentDb> factory, IEnumer
                 await db.SaveChangesAsync(ct); report.Add($"{provider.Brand.Name()}: {found.Count} galerii, nowych {added}.");
                 var waiting = (await GalleriesAsync(ct)).Where(x => x.Brand == provider.Brand && !x.Used && !x.DetailsLoaded && x.Specification.Model != null).OrderBy(x => x.ListingOrder).Take(3).ToList();
                 foreach (var item in waiting) { progress?.Report($"Szczegóły {item.Vehicle.Display}…"); try { await LoadDetailsInternalAsync(item.Id, ct); } catch (Exception e) when (e is not OperationCanceledException) { report.Add($"Galeria {item.Id}: {SafeError(e)}"); } }
-                foreach (var candidate in (await GalleriesAsync(ct)).Where(x => x.Brand == provider.Brand && !x.Used && x.DetailsLoaded && x.Complete))
+                if (verifyLoadedBlogs) foreach (var candidate in (await GalleriesAsync(ct)).Where(x => x.Brand == provider.Brand && !x.Used && x.DetailsLoaded && x.Complete))
                 { progress?.Report("Sprawdzanie /blog: " + candidate.Vehicle.Display); await CheckBlogAsync(candidate.Id, ct); }
                 var syncKey = "last-sync-" + provider.Brand;
                 var sync = await db.ApplicationSettings.FindAsync([syncKey], ct);
@@ -313,26 +314,70 @@ public sealed class ContentService(IDbContextFactory<ContentDb> factory, IEnumer
         }
         return null;
     }
-    public async Task<string> RunCycleAsync(bool scheduled, IProgress<string>? progress, CancellationToken ct)
+    public async Task<IReadOnlyList<Article>> ReadySetAsync(CancellationToken ct = default) => await LoadReadySetAsync(ct);
+    private async Task<IReadOnlyList<Article>> LoadReadySetAsync(CancellationToken ct)
+    {
+        await using var db = await factory.CreateDbContextAsync(ct);
+        var s = await settings.LoadAsync(ct);
+        var articles = await db.FullArticles.Where(a => a.Status == ArticleStatus.Ready || a.Status == ArticleStatus.Approved).AsNoTracking().ToListAsync(ct);
+        bool Valid(Article a)
+        {
+            if (!ReadyArticles.Available(a)) return false;
+            try
+            {
+                return new[] { "PL", "EN" }.All(language =>
+                {
+                    var v = a.Versions.Where(v => v.Language == language).MaxBy(v => v.Revision)!;
+                    var text = new AiArticle(v.Title, v.Intro, v.Body, language, JsonSerializer.Deserialize<string[]>(v.SourcesJson) ?? [], []);
+                    return ArticleValidator.Validate(text, a.Gallery, s, language).Count == 0;
+                });
+            }
+            catch (JsonException) { return false; }
+        }
+        return ReadyArticles.Set(articles.Where(Valid));
+    }
+    public Task<string> PrepareReadySetAsync(IProgress<string>? progress, CancellationToken ct) => RunCycleAsync(false, progress, ct, replenish: true);
+    public async Task<string> RunCycleAsync(bool scheduled, IProgress<string>? progress, CancellationToken ct, bool replenish = false)
     {
         using var gate = OperationLock.Acquire(Path.Combine(paths.Root, "operation.lock")); var s = await settings.LoadAsync(ct); s.Validate();
         if (scheduled && !s.ScheduleEnabled) return "Automatyzacja jest wyłączona.";
+        if (replenish && !s.BackgroundPreparationEnabled) return "Przygotowanie w tle jest wyłączone.";
+        var missingBrands = replenish ? Enum.GetValues<WheelBrand>().Except((await ReadySetAsync(ct)).Select(a => a.Gallery.Brand)).ToHashSet() : null;
         await using var db = await factory.CreateDbContextAsync(ct);
         var today = DateTime.Today; var key = scheduled ? $"{System.Globalization.ISOWeek.GetYear(today)}-{System.Globalization.ISOWeek.GetWeekOfYear(today):00}" : Guid.NewGuid().ToString("N");
-        var run = await db.AutomationRuns.SingleOrDefaultAsync(x => x.PeriodKey == key, ct);
+        if (replenish && missingBrands!.Count == 0)
+        {
+            // Retry a pending completion notification without buying another set of AI calls.
+            var pendingMail = await db.NotificationHistory.Where(n => n.State == "Pending").ToListAsync(ct);
+            var completedRun = (await db.AutomationRuns.Where(r => r.Status == "Zakończono" && r.PeriodKey.StartsWith("stock-")).ToListAsync(ct))
+                .OrderByDescending(r => r.Started).FirstOrDefault(r => pendingMail.Any(n => n.RunId == r.Id + ":success"));
+            if (completedRun != null)
+            {
+                try { await notifications.NotifyAsync(completedRun, (await ArticlesAsync(ct)).Where(a => a.AutomationRunId == completedRun.Id).ToList(), completedRun.Report ?? "Zestaw gotowy.", ct); }
+                catch (Exception e) when (e is not OperationCanceledException) { await LogAsync("E-mail", SafeError(e), "Błąd", ct); }
+            }
+            return "Zestaw 3 artykułów jest gotowy — bez kolejnych wywołań AI.";
+        }
+        if (replenish && (string.IsNullOrWhiteSpace(s.AiModel) || s.InputPricePerMillion <= 0 || s.OutputPricePerMillion <= 0 || string.IsNullOrWhiteSpace(secrets.Read(s.AiProvider))))
+        {
+            const string message = "Uzupełnij model AI, ceny i klucz API w Ustawieniach, aby przygotować zestaw w tle.";
+            await LogAsync("Przygotowanie w tle", message, "Błąd", ct); throw new InvalidOperationException(message);
+        }
+        var run = replenish ? (await db.AutomationRuns.Where(r => r.PeriodKey.StartsWith("stock-") && r.Status != "Zakończono").ToListAsync(ct)).OrderByDescending(r => r.Started).FirstOrDefault() : await db.AutomationRuns.SingleOrDefaultAsync(x => x.PeriodKey == key, ct);
         if (run?.Status == "Zakończono")
         {
             var completed = (await ArticlesAsync(ct)).Where(x => x.AutomationRunId == run.Id).ToList();
             await notifications.NotifyAsync(run, completed, run.Report ?? "Cykl ukończony.", ct);
             return "Ten cykl został już ukończony. Nie wygenerowano duplikatów.";
         }
-        if (run == null) { run = new() { PeriodKey = key }; db.Add(run); await db.SaveChangesAsync(ct); }
+        if (run == null) { run = new() { PeriodKey = replenish ? "stock-" + Guid.NewGuid().ToString("N") : key }; db.Add(run); await db.SaveChangesAsync(ct); }
+        run.Status = "W toku"; run.Finished = null; await db.SaveChangesAsync(ct);
         var report = new List<string>();
         var usage = await db.GenerationJobs.Where(x => x.RunId == run.Id).ToListAsync(ct); var budget = new Budget(s, usage.Sum(x => x.InputTokens), usage.Sum(x => x.OutputTokens));
         try
         {
-            report.Add(await SyncInternalAsync(progress, ct));
-            var incomplete = (await ArticlesAsync(ct)).Where(x => x.AutomationRunId == run.Id && x.Status is ArticleStatus.Generating or ArticleStatus.NeedsCorrection).ToList();
+            report.Add(await SyncInternalAsync(progress, ct, verifyLoadedBlogs: false, onlyBrands: missingBrands));
+            var incomplete = (await ArticlesAsync(ct)).Where(x => x.AutomationRunId == run.Id && (x.Status is ArticleStatus.Generating or ArticleStatus.NeedsCorrection) && (!replenish || missingBrands!.Contains(x.Gallery.Brand))).ToList();
             foreach (var pending in incomplete)
             {
                 try { await GenerateInternalAsync(pending.GalleryId, false, false, null, run.Id, budget, progress, ct); }
@@ -340,13 +385,13 @@ public sealed class ContentService(IDbContextFactory<ContentDb> factory, IEnumer
             }
             foreach (var brand in Enum.GetValues<WheelBrand>())
             {
-                var existing = await db.Articles.Include(x => x.Gallery).CountAsync(x => x.AutomationRunId == run.Id && x.Gallery.Brand == brand, ct);
-                for (var i = existing; i < s.ArticlesPerBrand; i++)
+                var existing = replenish ? (await ReadySetAsync(ct)).Count(a => a.Gallery.Brand == brand) : await db.Articles.Include(x => x.Gallery).CountAsync(x => x.AutomationRunId == run.Id && x.Gallery.Brand == brand, ct);
+                for (var i = existing; i < (replenish ? 1 : s.ArticlesPerBrand); i++)
                 {
                     var all = await GalleriesAsync(ct);
                     var manualId = brand == WheelBrand.JR ? s.ManualJrGalleryId : brand == WheelBrand.Concaver ? s.ManualConcaverGalleryId : s.ManualVesserGalleryId;
                     Gallery? available;
-                    try { available = s.SelectionMode == "Ręczny" ? all.FirstOrDefault(x => x.Id == manualId && x.Brand == brand && !x.Used) : await NextUnpublishedGalleryAsync(brand, progress, ct); }
+                    try { available = !replenish && s.SelectionMode == "Ręczny" ? all.FirstOrDefault(x => x.Id == manualId && x.Brand == brand && !x.Used) : await NextUnpublishedGalleryAsync(brand, progress, ct); }
                     catch (Exception e) when (e is not OperationCanceledException) { report.Add(brand.Name() + ": nie udało się dobrać tematu — " + SafeError(e)); break; }
                     if (available == null) { report.Add(brand.Name() + ": brak niewykorzystanych kompletnych galerii."); break; }
                     try { await GenerateInternalAsync(available.Id, false, false, null, run.Id, budget, progress, ct); }
@@ -355,7 +400,8 @@ public sealed class ContentService(IDbContextFactory<ContentDb> factory, IEnumer
                 }
             }
             var articles = (await ArticlesAsync(ct)).Where(x => x.AutomationRunId == run.Id).ToList();
-            var complete = NotificationService.IsFullSuccess(articles, s.ArticlesPerBrand);
+            var complete = replenish ? (await ReadySetAsync(ct)).Count == 3 : NotificationService.IsFullSuccess(articles, s.ArticlesPerBrand);
+            if (replenish) report.Insert(0, $"Gotowy zestaw: {(await ReadySetAsync(ct)).Count}/3 marek. Nowe artykuły: {articles.Count(ReadyArticles.Available)}.");
             run.Status = complete ? "Zakończono" : "Częściowe wykonanie"; run.Finished = DateTimeOffset.UtcNow; run.Report = string.Join("\n", report); await db.SaveChangesAsync(ct);
             try { await notifications.NotifyAsync(run, articles, run.Report, ct); }
             catch (Exception e) { await LogAsync("E-mail", SafeError(e), "Błąd", ct); report.Add("E-mail: " + SafeError(e)); }

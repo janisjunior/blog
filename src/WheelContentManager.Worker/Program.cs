@@ -11,8 +11,19 @@ try
     await Bootstrap.InitializeAsync(host.Services, cancellation.Token);
     var service = host.Services.GetRequiredService<ContentService>();
     var progress = new Progress<string>(Console.WriteLine);
-    if (args.Contains("--run-weekly"))
+    if (args.Contains("--prepare-stock"))
     {
+        Console.WriteLine(await service.PrepareReadySetAsync(progress, cancellation.Token));
+        return (await service.ReadySetAsync()).Count == 3 || !(await host.Services.GetRequiredService<SettingsService>().LoadAsync()).BackgroundPreparationEnabled ? 0 : 1;
+    }
+    else if (args.Contains("--run-weekly"))
+    {
+        var configuration = await host.Services.GetRequiredService<SettingsService>().LoadAsync();
+        if (configuration.ScheduleEnabled && configuration.BackgroundPreparationEnabled)
+        {
+            Console.WriteLine(await service.PrepareReadySetAsync(progress, cancellation.Token));
+            return (await service.ReadySetAsync()).Count == 3 ? 0 : 1;
+        }
         Console.WriteLine(await service.RunCycleAsync(true, progress, cancellation.Token));
         var settings = await host.Services.GetRequiredService<SettingsService>().LoadAsync();
         if (settings.ScheduleEnabled)
@@ -21,6 +32,13 @@ try
             var sent = await host.Services.GetRequiredService<NotificationService>().HistoryAsync();
             if (run == null || run.Status != "Zakończono" || !sent.Any(x => x.RunId == run.Id + ":success" && x.State == "Sent")) return 1;
         }
+    }
+    else if (Array.IndexOf(args, "--write-background-task") is var wi && wi >= 0 && wi + 1 < args.Length)
+    {
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Eksport zadania Windows wymaga Windows.");
+        var configuration = await host.Services.GetRequiredService<SettingsService>().LoadAsync();
+        var xml = WindowsScheduler.BackgroundTaskXml(configuration, Environment.ProcessPath!, System.Security.Principal.WindowsIdentity.GetCurrent().Name);
+        await File.WriteAllTextAsync(args[wi + 1], xml, System.Text.Encoding.Unicode, cancellation.Token);
     }
     else if (args.Contains("--sync")) Console.WriteLine(await service.SyncAsync(progress, cancellation.Token));
     else if (Array.IndexOf(args, "--check-blog") is var bi && bi >= 0 && bi + 1 < args.Length && long.TryParse(args[bi + 1], out var blogId)) Console.WriteLine(await service.CheckBlogAsync(blogId, cancellation.Token));
@@ -41,7 +59,7 @@ try
         Console.WriteLine($"Test: {article.Status}. Bez wiadomości e-mail i bez wykorzystania galerii.");
         foreach (var v in article.Versions) Console.WriteLine($"{v.Language}: {v.Title}\n{v.Intro}\n{v.Body}");
     }
-    else Console.WriteLine("Wheel Content Manager\n--run-weekly: cykl według zapisanych ustawień\n--sync: pobieranie galerii\n--diagnose: lokalna diagnostyka\n--import-prompts <plik.docx>: import sekcji JR/CVR/VSR\n--dry-run <ID galerii>: pełny test z AI (koszt API), bez e-maila i oznaczania galerii.");
+    else Console.WriteLine("WT - Blog Generator\n--prepare-stock: uzupełnianie 3 gotowych artykułów w tle\n--run-weekly: cykl według zapisanych ustawień\n--sync: pobieranie galerii\n--diagnose: lokalna diagnostyka\n--import-prompts <plik.docx>: import sekcji JR/CVR/VSR\n--dry-run <ID galerii>: pełny test z AI (koszt API), bez e-maila i oznaczania galerii.");
     return 0;
 }
 catch (OperationCanceledException) { Console.Error.WriteLine("Anulowano operację. Postęp pozostaje w bazie."); return 2; }

@@ -35,8 +35,8 @@ public sealed class ContentDb(DbContextOptions<ContentDb> options) : DbContext(o
             if (property.ClrType == typeof(DateTimeOffset?)) property.SetValueConverter(new Microsoft.EntityFrameworkCore.Storage.ValueConversion.DateTimeOffsetToBinaryConverter());
         }
     }
-    public IQueryable<Gallery> FullGalleries => Galleries.Include(x => x.Vehicle).Include(x => x.Specification).Include(x => x.Images).Include(x => x.Sources);
-    public IQueryable<Article> FullArticles => Articles.Include(x => x.Gallery).ThenInclude(x => x.Vehicle).Include(x => x.Gallery).ThenInclude(x => x.Specification).Include(x => x.Gallery).ThenInclude(x => x.Images).Include(x => x.Gallery).ThenInclude(x => x.Sources).Include(x => x.Versions);
+    public IQueryable<Gallery> FullGalleries => Galleries.AsSplitQuery().Include(x => x.Vehicle).Include(x => x.Specification).Include(x => x.Images).Include(x => x.Sources);
+    public IQueryable<Article> FullArticles => Articles.AsSplitQuery().Include(x => x.Gallery).ThenInclude(x => x.Vehicle).Include(x => x.Gallery).ThenInclude(x => x.Specification).Include(x => x.Gallery).ThenInclude(x => x.Images).Include(x => x.Gallery).ThenInclude(x => x.Sources).Include(x => x.Versions);
 }
 public sealed class DesignFactory : IDesignTimeDbContextFactory<ContentDb>
 {

@@ -87,10 +87,10 @@ public sealed class IntegrationTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => env.Content.RunCycleAsync(true, null, default)); Assert.Equal(calls, env.Ai.Calls.Count); Assert.Equal(3, (await env.Content.ArticlesAsync()).Count);
     }
 }
-internal sealed class MemorySecrets : ISecretStore { public string? Read(string name) => "test-only-key"; public void Save(string name, string value) { } }
+internal sealed class MemorySecrets : ISecretStore { public bool Missing { get; set; } public string? Read(string name) => Missing ? null : "test-only-key"; public void Save(string name, string value) { } }
 internal sealed class MockAi : IAiProvider
 {
-    public string Name => "OpenAI"; public bool BrokenJson { get; set; } public List<(int Images, string Language)> Calls { get; } = [];
+    public string Name => "OpenAI"; public string NarrativeVariant { get; set; } = ""; public bool BrokenJson { get; set; } public List<(int Images, string Language)> Calls { get; } = [];
     public Task<IReadOnlyList<string>> ModelsAsync(string key, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>>(["mock-vision"]);
     public Task<AiResult> CompleteAsync(string key, string model, string instruction, string data, IReadOnlyList<string> imagePaths, int maxTokens, CancellationToken ct)
     {
@@ -101,11 +101,16 @@ internal sealed class MockAi : IAiProvider
         if (BrokenJson) return Task.FromResult(new AiResult("not JSON", 50, 50));
         using var json = JsonDocument.Parse(data.Split("\nPoprzednia próba")[0]); var brand = json.RootElement.GetProperty("wheelBrand").GetString();
         var g = Fixtures.Gallery(brand == "JR Wheels" ? WheelBrand.JR : brand == "Concaver Wheels" ? WheelBrand.Concaver : WheelBrand.Vesser);
-        return Task.FromResult(new AiResult(JsonSerializer.Serialize(Fixtures.ArticleData(g, language), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }), 50, 50));
+        g.Url = json.RootElement.GetProperty("galleryUrl").GetString()!;
+        g.Vehicle.Model = json.RootElement.GetProperty("bindings").GetProperty("CAR_MODEL").GetString();
+        var article = Fixtures.ArticleData(g, language);
+        if (NarrativeVariant.Length > 0) article = article with { Body = article.Body.Replace("jasny", "jasny" + NarrativeVariant).Replace("ciemny", "ciemny" + NarrativeVariant).Replace("srebrny", "srebrny" + NarrativeVariant) };
+        return Task.FromResult(new AiResult(JsonSerializer.Serialize(article, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }), 50, 50));
     }
 }
 internal sealed class FixtureProvider(WheelBrand brand, string imagePath) : IGalleryProvider
 {
+    public int Discoveries { get; private set; }
     public bool MissingProduct { get; set; } public bool WrongProduct { get; set; } public int Loads { get; private set; }
     public WheelBrand Brand => brand; public Uri IndexUrl => new("https://fixture.example/");
     public Task<Gallery> LoadAsync(string url, CancellationToken ct)
@@ -117,7 +122,7 @@ internal sealed class FixtureProvider(WheelBrand brand, string imagePath) : IGal
         g.Sources.AddRange([new() { Field = "ProductModel", Value = WrongProduct ? "JR99" : g.Specification.Model, Url = g.Specification.ProductUrl, Confirmed = true }, new() { Field = "ProductDetails", Value = g.Specification.ProductDetails, Url = g.Specification.ProductUrl, Confirmed = true }]);
         return Task.FromResult(g);
     }
-    public Task<IReadOnlyList<Gallery>> DiscoverAsync(CancellationToken ct) { var g = Fixtures.Gallery(brand); g.Images[0].LocalPath = imagePath; return Task.FromResult<IReadOnlyList<Gallery>>([g]); }
+    public Task<IReadOnlyList<Gallery>> DiscoverAsync(CancellationToken ct) { Discoveries++; var g = Fixtures.Gallery(brand); g.Images[0].LocalPath = imagePath; return Task.FromResult<IReadOnlyList<Gallery>>([g]); }
 }
 internal sealed class TestEnvironment : IAsyncDisposable
 {

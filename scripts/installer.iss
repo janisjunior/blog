@@ -1,5 +1,5 @@
-#define AppName "Wheel Content Manager"
-#define AppVersion "0.2.0"
+#define AppName "WT - Blog Generator"
+#define AppVersion "0.3.0"
 [Setup]
 AppId={{F33F7BB7-0279-493A-950B-95471820CD71}
 AppName={#AppName}
@@ -10,7 +10,7 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\artifacts
-OutputBaseFilename=WheelContentManager-Setup
+OutputBaseFilename=WT-Blog-Generator-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -19,11 +19,14 @@ UninstallDisplayIcon={app}\WheelContentManager.Desktop.exe
 Name: "polish"; MessagesFile: "compiler:Languages\Polish.isl"
 [Files]
 Source: "..\artifacts\WheelContentManager\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+[InstallDelete]
+Type: files; Name: "{userprograms}\Wheel Content Manager.lnk"
+Type: files; Name: "{userdesktop}\Wheel Content Manager.lnk"
 [Icons]
-Name: "{userprograms}\Wheel Content Manager"; Filename: "{app}\WheelContentManager.Desktop.exe"
-Name: "{userdesktop}\Wheel Content Manager"; Filename: "{app}\WheelContentManager.Desktop.exe"; Tasks: desktopicon
+Name: "{userprograms}\WT - Blog Generator"; Filename: "{app}\WheelContentManager.Desktop.exe"
+Name: "{userdesktop}\WT - Blog Generator"; Filename: "{app}\WheelContentManager.Desktop.exe"; Tasks: desktopicon
 [Tasks]
 Name: desktopicon; Description: "Utwórz skrót na pulpicie"; Flags: unchecked
 [Run]
-Filename: "{app}\WheelContentManager.Desktop.exe"; Description: "Uruchom Wheel Content Manager"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\WheelContentManager.Desktop.exe"; Description: "Uruchom WT - Blog Generator"; Flags: nowait postinstall skipifsilent
 ; Baza, eksport i sekrety w AppData\Local\WheelContentManager pozostają przy odinstalowaniu.

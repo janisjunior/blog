@@ -1,4 +1,4 @@
-# Wheel Content Manager
+# WT - Blog Generator
 
 Aplikacja desktopowa dla Windows 11, przygotowująca artykuły o konfiguracjach samochodów na felgach JR Wheels, Concaver Wheels i Vesser Forged. Interfejs jest po polsku, a treści PL i EN powstają w osobnych zadaniach AI. Aplikacja nie publikuje artykułów na stronach.
 
@@ -6,16 +6,28 @@ Aplikacja desktopowa dla Windows 11, przygotowująca artykuły o konfiguracjach 
 
 1. Otwórz [zakładkę Actions repozytorium](https://github.com/janisjunior/blog/actions).
 2. Wybierz zakończone zielonym znacznikiem uruchomienie **Windows — kompilacja, testy i paczka EXE**.
-3. Na dole, w **Artifacts**, pobierz **WheelContentManager-Windows** (GitHub wymaga zalogowania do pobrania).
-4. Rozpakuj pobrany ZIP. Uruchom `WheelContentManager-Setup.exe`, jeśli instalator jest w paczce. Alternatywnie rozpakuj wewnętrzny `WheelContentManager-win-x64.zip` do stałego folderu i uruchom `WheelContentManager.Desktop.exe`.
+3. Na dole, w **Artifacts**, pobierz **WT-Blog-Generator-Windows** (GitHub wymaga zalogowania do pobrania).
+4. Rozpakuj pobrany ZIP. Uruchom `WT-Blog-Generator-Setup.exe`, jeśli instalator jest w paczce. Alternatywnie rozpakuj wewnętrzny `WT-Blog-Generator-win-x64.zip` do stałego folderu i uruchom `WheelContentManager.Desktop.exe`.
 5. Zachowaj wszystkie pliki paczki razem, w tym podfolder `Worker`. Wersja samodzielna zawiera .NET — nie trzeba instalować SDK.
 
-Paczka jest niepodpisana cyfrowo. Windows może wyświetlić informację o nieznanym wydawcy. Nazwa repozytorium pozostaje `blog`; nazwa programu to Wheel Content Manager.
+Paczka jest niepodpisana cyfrowo. Windows może wyświetlić informację o nieznanym wydawcy. Nazwa repozytorium pozostaje `blog`; nazwa programu to WT - Blog Generator.
 
-## Aktualizacja do wersji 0.2.0
+## Gotowy zestaw przed otwarciem — wersja 0.3.0
+
+Po skonfigurowaniu AI i zapisaniu ustawień program automatycznie rejestruje zadanie przygotowania w tle i uruchamia pierwszą próbę. Okno można zamknąć. Kolejne sprawdzenia następują po zalogowaniu do Windows oraz co 2 godziny, od 06:00. Komputer musi być włączony, konto zalogowane, a dostęp do internetu i AI skonfigurowany. Na wyłączonym komputerze artykuły nie powstaną; pierwszy zestaw trzeba przygotować przed możliwością jego odczytu.
+
+Pulpit pokazuje **3 gotowe artykuły**, po jednym PL + EN dla JR Wheels, Concaver Wheels i Vesser Forged. Gotowe i zatwierdzone teksty pozostają w zestawie do oznaczenia jako **Opublikowany**. Po publikacji w CMS oznacz wpis również w programie; wtedy zadanie uzupełni tylko tę markę. Pełny zestaw nie uruchamia ponownie AI ani pobierania źródeł. Własne edycje nie są zastępowane przez automatyczne odświeżenie listy gotowych tekstów.
+
+Przygotowanie w tle można wyłączyć w **Ustawieniach** i zapisać zmianę. Obowiązują dotychczasowe limity kosztów i tokenów; niepowodzenie jest widoczne na Pulpicie i w Historii. Częściowy zestaw jest wznawiany w tym samym zadaniu i budżecie, a gotowe marki nie są generowane ponownie. Gdy przygotowanie w tle jest włączone, zadanie tygodniowe również uzupełnia zestaw zamiast dokładać kolejne trzy artykuły. Ręczny przycisk „Generuj cykl 3 marek” nadal służy świadomemu przygotowaniu dodatkowego cyklu.
+
+Synchronizacja korzysta z jednego odczytu istniejących galerii na markę zamiast osobnego zapytania dla każdej pozycji. Automatyczne przygotowanie nie sprawdza niepotrzebnych galerii innych marek; pełna kontrola wszystkich podstron `/blog` nadal obowiązuje dla każdej wybieranej galerii. Artykuły nadal mają 2200–2600 słów na język, aktualną kartę produktu i analizę zdjęć.
+
+Nazwa programu i jasnego panelu to **WT - Blog Generator**. Identyfikator instalatora, lokalizacja danych oraz techniczne nazwy plików EXE pozostają zgodne z wcześniejszą instalacją, aby zachować bazę i klucze.
+
+## Aktualizacja do wersji 0.3.0
 
 1. Poczekaj na zakończenie generowania i zamknij program. Worker z Harmonogramu również musi zakończyć pracę.
-2. Pobierz najnowszą zieloną paczkę **WheelContentManager-Windows** z Actions, rozpakuj i uruchom **WheelContentManager-Setup.exe**.
+2. Pobierz najnowszą zieloną paczkę **WT-Blog-Generator-Windows** z Actions, rozpakuj i uruchom **WT-Blog-Generator-Setup.exe**.
 3. Zainstaluj w dotychczasowym folderze, na tym samym koncie Windows. Nie trzeba odinstalowywać starej wersji.
 4. Uruchom program. Baza, artykuły, klucze API, poczta i historia pozostają w `%LOCALAPPDATA%\WheelContentManager`. Starsze ustawienia długości zmienią się automatycznie na 2200–2600 słów, a eksport zdjęć zostanie wyłączony. Budżet cyklu, ceny i dane poczty są zachowane. Nietknięte wbudowane prompty otrzymają nową wersję; własne edycje pozostają.
 

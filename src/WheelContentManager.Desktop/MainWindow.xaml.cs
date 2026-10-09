@@ -29,7 +29,7 @@ public sealed class BrandConverter : IValueConverter
 
 public sealed class NotificationStateConverter : IValueConverter
 {
-    public object Convert(object value, Type type, object p, CultureInfo c) => value?.ToString() switch { "Sent" => "Wysłano / potwierdzono odbiór", "Pending" => "Oczekuje na wysyłkę", "Sending" => "Wysyłka rozpoczęta", "Unknown" => "Niepewny wynik — sprawdź skrzynkę", _ => "Nieznany stan" };
+    public object Convert(object value, Type type, object p, CultureInfo c) => value?.ToString() switch { "Sent" => "Wysłano / potwierdzono odbiór", "Pending" => "Oczekuje na wysyłkę", "Sending" => "Wysyłka rozpoczęta", "Superseded" => "Zastąpiono raportem ukończenia", "Unknown" => "Niepewny wynik — sprawdź skrzynkę", _ => "Nieznany stan" };
     public object ConvertBack(object value, Type type, object p, CultureInfo c) => Binding.DoNothing;
 }
 public sealed class SourceFieldConverter : IValueConverter

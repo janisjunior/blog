@@ -15,13 +15,49 @@ public sealed class WindowsScheduler(AppPaths paths)
         return $"""
         <?xml version="1.0" encoding="UTF-16"?>
         <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-          <RegistrationInfo><Description>Wheel Content Manager — przygotowanie treści PL/EN, bez publikacji.</Description></RegistrationInfo>
+          <RegistrationInfo><Description>WT - Blog Generator — przygotowanie treści PL/EN, bez publikacji.</Description></RegistrationInfo>
           <Triggers><CalendarTrigger><StartBoundary>{start}</StartBoundary><Enabled>true</Enabled><ScheduleByWeek><WeeksInterval>1</WeeksInterval><DaysOfWeek><{days[(int)s.ScheduleDay]}/></DaysOfWeek></ScheduleByWeek></CalendarTrigger></Triggers>
           <Principals><Principal id="Author"><UserId>{Esc(user)}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
           <Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries><StopIfGoingOnBatteries>false</StopIfGoingOnBatteries><StartWhenAvailable>true</StartWhenAvailable><ExecutionTimeLimit>PT3H</ExecutionTimeLimit><Enabled>true</Enabled>{retry}</Settings>
           <Actions Context="Author"><Exec><Command>{Esc(worker)}</Command><Arguments>--run-weekly</Arguments><WorkingDirectory>{Esc(Path.GetDirectoryName(worker)!)}</WorkingDirectory></Exec></Actions>
         </Task>
         """;
+    }
+    public static string BackgroundTaskXml(AppSettings s, string worker, string user)
+    {
+        static string Esc(string value) => SecurityElement.Escape(value)!;
+        var boundary = DateTime.Today.AddHours(6).ToString("yyyy-MM-ddTHH:mm:ss");
+        var retry = s.MaxRetries > 0 ? $"<RestartOnFailure><Interval>PT30M</Interval><Count>{s.MaxRetries}</Count></RestartOnFailure>" : "";
+        return $"""
+        <?xml version="1.0" encoding="UTF-16"?>
+        <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+          <RegistrationInfo><Description>WT - Blog Generator — utrzymanie 3 gotowych artykułów, bez publikacji.</Description></RegistrationInfo>
+          <Triggers>
+            <LogonTrigger><Enabled>true</Enabled><UserId>{Esc(user)}</UserId><Delay>PT1M</Delay></LogonTrigger>
+            <CalendarTrigger><Repetition><Interval>PT2H</Interval><Duration>P1D</Duration><StopAtDurationEnd>false</StopAtDurationEnd></Repetition><StartBoundary>{boundary}</StartBoundary><Enabled>true</Enabled><ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay></CalendarTrigger>
+          </Triggers>
+          <Principals><Principal id="Author"><UserId>{Esc(user)}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
+          <Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries><StopIfGoingOnBatteries>false</StopIfGoingOnBatteries><StartWhenAvailable>true</StartWhenAvailable><ExecutionTimeLimit>PT3H</ExecutionTimeLimit><Enabled>true</Enabled>{retry}</Settings>
+          <Actions Context="Author"><Exec><Command>{Esc(worker)}</Command><Arguments>--prepare-stock</Arguments><WorkingDirectory>{Esc(Path.GetDirectoryName(worker)!)}</WorkingDirectory></Exec></Actions>
+        </Task>
+        """;
+    }
+    public async Task ApplyBackgroundAsync(AppSettings s, bool startNow = false, CancellationToken ct = default)
+    {
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Przygotowanie w tle wymaga Harmonogramu Windows.");
+        var name = "WheelContentManager-Prepare-" + Environment.UserName;
+        if (!s.BackgroundPreparationEnabled)
+        {
+            if (await RunAsync(["/Query", "/TN", name], ct, true) == 0) await RunAsync(["/Change", "/TN", name, "/DISABLE"], ct);
+            return;
+        }
+        if (!s.SetupCompleted || string.IsNullOrWhiteSpace(s.AiModel) || s.InputPricePerMillion <= 0 || s.OutputPricePerMillion <= 0) return;
+        var worker = Path.Combine(AppContext.BaseDirectory, "Worker", "WheelContentManager.Worker.exe");
+        if (!File.Exists(worker)) throw new InvalidOperationException("Brak Workera w paczce. Zainstaluj pełną paczkę WT - Blog Generator.");
+        var xml = Path.Combine(paths.Root, "prepare-schedule.xml");
+        await File.WriteAllTextAsync(xml, BackgroundTaskXml(s, worker, System.Security.Principal.WindowsIdentity.GetCurrent().Name), System.Text.Encoding.Unicode, ct);
+        await RunAsync(["/Create", "/TN", name, "/XML", xml, "/F"], ct);
+        if (startNow) await RunAsync(["/Run", "/TN", name], ct);
     }
     private static async Task<int> RunAsync(IEnumerable<string> args, CancellationToken ct, bool allowFailure = false)
     {

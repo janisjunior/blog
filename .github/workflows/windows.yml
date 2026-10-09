@@ -20,8 +20,27 @@ jobs:
       - name: Sprawdzenie Workera i migracji na Windows
         shell: pwsh
         run: |
-          & ./artifacts/WheelContentManager/Worker/WheelContentManager.Worker.exe --data-root "$env:RUNNER_TEMP/wcm-smoke" --diagnose
-          if ($LASTEXITCODE -ne 0) { throw 'Worker nie przeszedł diagnostyki.' }
+          $smokeRoot = "$env:RUNNER_TEMP/wcm-smoke"
+          $worker = Start-Process -FilePath './artifacts/WheelContentManager/Worker/WheelContentManager.Worker.exe' -ArgumentList @('--data-root', $smokeRoot, '--diagnose') -Wait -PassThru
+          if ($worker.ExitCode -ne 0 -or !(Test-Path "$smokeRoot/content.db")) { throw 'Worker nie przeszedł diagnostyki.' }
+      - name: Sprawdzenie rejestracji zadania przygotowania w tle
+        shell: pwsh
+        run: |
+          $taskFile = "$env:RUNNER_TEMP/wt-background.xml"
+          $process = Start-Process -FilePath './artifacts/WheelContentManager/Worker/WheelContentManager.Worker.exe' -ArgumentList @('--data-root', "$env:RUNNER_TEMP/wcm-smoke", '--write-background-task', $taskFile) -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Nie zapisano definicji zadania.' }
+          [xml]$definition = Get-Content $taskFile
+          $definition.Task.Settings.Enabled = 'false'
+          $definition.Save($taskFile)
+          $taskName = "WT-Blog-CI-$env:GITHUB_RUN_ID"
+          try {
+            & schtasks.exe /Create /TN $taskName /XML $taskFile /F
+            if ($LASTEXITCODE -ne 0) { throw 'Windows odrzucił definicję przygotowania w tle.' }
+            & schtasks.exe /Query /TN $taskName
+            if ($LASTEXITCODE -ne 0) { throw 'Nie znaleziono zarejestrowanego zadania.' }
+          } finally {
+            & schtasks.exe /Delete /TN $taskName /F
+          }
       - name: Instalator Inno Setup
         shell: pwsh
         run: |
@@ -31,8 +50,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Nie udało się zbudować instalatora.' }
       - uses: actions/upload-artifact@v4
         with:
-          name: WheelContentManager-Windows
+          name: WT-Blog-Generator-Windows
           path: |
-            artifacts/WheelContentManager-win-x64.zip
-            artifacts/WheelContentManager-Setup.exe
+            artifacts/WT-Blog-Generator-win-x64.zip
+            artifacts/WT-Blog-Generator-Setup.exe
           if-no-files-found: error

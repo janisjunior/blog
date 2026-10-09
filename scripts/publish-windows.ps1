@@ -19,7 +19,7 @@ New-Item -ItemType Directory -Force $workerDestination | Out-Null
 Copy-Item -Recurse "$worker/*" $workerDestination
 Copy-Item 'README.md' $destination
 Copy-Item -Recurse 'docs' $destination
-$zip = Join-Path (Get-Location) "artifacts/WheelContentManager-$Runtime.zip"
+$zip = Join-Path (Get-Location) "artifacts/WT-Blog-Generator-$Runtime.zip"
 if (Test-Path $zip) { Remove-Item $zip }
 Compress-Archive -Path "$destination/*" -DestinationPath $zip
 Write-Host "Gotowe: $zip"

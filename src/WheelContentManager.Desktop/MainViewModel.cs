@@ -13,6 +13,11 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly ContentService content; private readonly SettingsService settingsService; private readonly PromptService prompts; private readonly ISecretStore secrets; private readonly NotificationService mail; private readonly WindowsScheduler scheduler;
     private CancellationTokenSource? work;
+    private readonly System.Windows.Threading.DispatcherTimer preparationTimer = new() { Interval = TimeSpan.FromSeconds(15) };
+    private bool pollingPreparation;
+    public ObservableCollection<Article> PreparedArticles { get; } = [];
+    [ObservableProperty] private Article? selectedPreparedArticle;
+    [ObservableProperty] private string preparationStatus = "Sprawdzanie gotowych artykułów…";
     public ObservableCollection<TopicSuggestion> Suggestions { get; } = [];
     [ObservableProperty] private TopicSuggestion? selectedSuggestion;
     public ObservableCollection<Gallery> Galleries { get; } = []; public ObservableCollection<Article> Articles { get; } = []; public ObservableCollection<ErrorLog> Logs { get; } = []; public ObservableCollection<AutomationRun> Runs { get; } = []; public ObservableCollection<PromptVersion> PromptHistory { get; } = []; public ObservableCollection<string> Models { get; } = []; public ObservableCollection<NotificationHistory> Notifications { get; } = [];
@@ -86,7 +91,50 @@ public partial class MainViewModel : ObservableObject
         ArticleHistory = SelectedArticle == null ? "" : string.Join("\n", SelectedArticle.Versions.OrderByDescending(x => x.Created).Select(x => $"{x.Created.LocalDateTime:g} · {x.Language} · wersja {x.Revision} · prompt {x.PromptVersionId} · tokeny wejście/wyjście: {x.InputTokens}/{x.OutputTokens}"));
         OnPropertyChanged(nameof(SelectedArticleStatus));
     }
-    public async Task InitializeAsync() { Settings = await settingsService.LoadAsync(); await RefreshAsync(); await LoadPromptAsync(); }
+    public async Task InitializeAsync()
+    {
+        Settings = await settingsService.LoadAsync(); await RefreshAsync(); await LoadPromptAsync(); await UpdatePreparedAsync();
+        preparationTimer.Tick += async (_, _) =>
+        {
+            if (pollingPreparation || Busy) return; pollingPreparation = true;
+            try { await UpdatePreparedAsync(); } catch { /* retain the last successful ready set during a transient database error */ }
+            finally { pollingPreparation = false; }
+        };
+        preparationTimer.Start();
+    }
+    public void StopUpdates() => preparationTimer.Stop();
+    private async Task UpdatePreparedAsync()
+    {
+        var ready = await content.ReadySetAsync(); var selected = SelectedPreparedArticle?.Id;
+        PreparedArticles.Clear(); foreach (var article in ready) PreparedArticles.Add(article);
+        SelectedPreparedArticle = PreparedArticles.FirstOrDefault(a => a.Id == selected) ?? PreparedArticles.FirstOrDefault();
+        PreparationStatus = ready.Count == 3 ? "Gotowe 3/3 — możesz od razu przejść do czytania." :
+            !Settings.BackgroundPreparationEnabled ? $"Gotowe {ready.Count}/3 — przygotowanie w tle jest wyłączone." :
+            string.IsNullOrWhiteSpace(Settings.AiModel) || Settings.InputPricePerMillion <= 0 || Settings.OutputPricePerMillion <= 0 ? $"Gotowe {ready.Count}/3 — uzupełnij AI i ceny w Ustawieniach." :
+            $"Gotowe {ready.Count}/3 — program uzupełni brakujące artykuły w tle. Wynik i błędy znajdziesz w Historii.";
+        if (ready.Count < 3 && Settings.BackgroundPreparationEnabled)
+        {
+            var last = (await content.RunsAsync()).FirstOrDefault(r => r.PeriodKey.StartsWith("stock-"));
+            if (last?.Status is "Częściowe wykonanie" or "Przerwano") PreparationStatus = $"Gotowe {ready.Count}/3 — ostatnia próba: {last.Status.ToLowerInvariant()}. Szczegóły i przyczynę sprawdzisz w Historii.";
+        }
+    }
+    public async Task ConfigureBackgroundAsync()
+    {
+        try
+        {
+            if (Settings.BackgroundPreparationEnabled && Settings.SetupCompleted && !string.IsNullOrWhiteSpace(Settings.AiModel) && string.IsNullOrWhiteSpace(secrets.Read(Settings.AiProvider)))
+            { PreparationStatus = "Zapisz klucz API w Ustawieniach, aby przygotować artykuły w tle."; return; }
+            await scheduler.ApplyBackgroundAsync(Settings, startNow: true);
+            await UpdatePreparedAsync();
+        }
+        catch (Exception e) { PreparationStatus = "Nie uruchomiono przygotowania w tle: " + e.Message; }
+    }
+    [RelayCommand] private Task OpenPreparedArticle() => RunAsync(async () =>
+    {
+        if (SelectedPreparedArticle == null) return; var id = SelectedPreparedArticle.Id;
+        await RefreshAsync(); SelectedArticle = Articles.FirstOrDefault(a => a.Id == id); SelectedTab = 2;
+    });
+    [RelayCommand] private Task StartPreparation() => RunAsync(ConfigureBackgroundAsync);
     private async Task RefreshAsync()
     {
         var selected = SelectedArticle?.Id; var gallery = SelectedGallery?.Id;
@@ -105,7 +153,7 @@ public partial class MainViewModel : ObservableObject
         if (Busy) return; Busy = true; work = new();
         try { await action(); }
         catch (OperationCanceledException) { Status = "Anulowano — postęp zapisano"; }
-        catch (Exception e) { Status = "Operacja nie została ukończona"; Report = e is InvalidOperationException or PlatformNotSupportedException ? e.Message : $"Błąd {e.GetType().Name}. Sprawdź konfigurację i historię."; MessageBox.Show(Report, "Wheel Content Manager", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        catch (Exception e) { Status = "Operacja nie została ukończona"; Report = e is InvalidOperationException or PlatformNotSupportedException ? e.Message : $"Błąd {e.GetType().Name}. Sprawdź konfigurację i historię."; MessageBox.Show(Report, "WT - Blog Generator", MessageBoxButton.OK, MessageBoxImage.Warning); }
         finally { work.Dispose(); work = null; Busy = false; }
     }
     private Task<T> Background<T>(Func<IProgress<string>, CancellationToken, Task<T>> action)
@@ -155,7 +203,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand] private Task SavePrompt() => RunAsync(async () => { await prompts.SaveAsync(PromptBrand, PromptText, "Edycja użytkownika", PromptVerified, Token); await LoadPromptAsync(); Status = "Zapisano nową wersję promptu"; });
     [RelayCommand] private Task RestorePrompt() => RunAsync(async () => { await prompts.SaveAsync(PromptBrand, PromptService.Default(PromptBrand), PromptService.DefaultOrigin, true, Token); await LoadPromptAsync(); });
     [RelayCommand] private Task ImportPrompt() => RunAsync(async () => { var dialog = new Microsoft.Win32.OpenFileDialog { Title = "Wybierz Wpisy na bloga.docx", Filter = "Dokument Word (*.docx)|*.docx" }; if (dialog.ShowDialog() != true) return; await prompts.ImportAsync(dialog.FileName, Token); await LoadPromptAsync(); Report = (await prompts.CurrentAsync(PromptBrand, Token)).EditorialDocumentVerified ? "Rozpoznano dostarczony dokument. Trzy gotowe szablony mają zmienne i są zweryfikowane." : "Zachowano pełne sekcje nowego dokumentu. Zastąp jego przykłady zmiennymi i potwierdź każdy szablon."; });
-    [RelayCommand] private Task SaveSettings() => RunAsync(async () => { Settings.MinWords = AppSettings.ReferenceMinWords; Settings.MaxWords = AppSettings.ReferenceMaxWords; Settings.Validate(); secrets.Save(Settings.AiProvider, ApiKey); secrets.Save("smtp", SmtpPassword); ApiKey = ""; SmtpPassword = ""; Settings.SetupCompleted = true; await settingsService.SaveAsync(Settings, Token); await RefreshAsync(); Status = "Ustawienia zapisane; sekrety zabezpieczone DPAPI"; });
+    [RelayCommand] private Task SaveSettings() => RunAsync(async () => { Settings.MinWords = AppSettings.ReferenceMinWords; Settings.MaxWords = AppSettings.ReferenceMaxWords; Settings.Validate(); secrets.Save(Settings.AiProvider, ApiKey); secrets.Save("smtp", SmtpPassword); ApiKey = ""; SmtpPassword = ""; Settings.SetupCompleted = true; await settingsService.SaveAsync(Settings, Token); await RefreshAsync(); await ConfigureBackgroundAsync(); Status = "Ustawienia zapisane; sekrety zabezpieczone DPAPI"; });
     [RelayCommand] private Task LoadModels() => RunAsync(async () => { await settingsService.SaveAsync(Settings, Token); if (!string.IsNullOrWhiteSpace(ApiKey)) { secrets.Save(Settings.AiProvider, ApiKey); ApiKey = ""; } Models.Clear(); foreach (var m in await content.ModelsAsync(Token)) Models.Add(m); Status = "Pobrano modele. Wybierz model obsługujący obrazy i sprawdź jego cennik."; });
     [RelayCommand] private Task TestMail() => RunAsync(async () => { await settingsService.SaveAsync(Settings, Token); secrets.Save("smtp", SmtpPassword); SmtpPassword = ""; await mail.TestAsync(Token); Status = "Wysłano wiadomość testową"; });
     [RelayCommand] private Task MarkMailReceived() => RunAsync(async () => { if (SelectedNotification == null) throw new InvalidOperationException("Wybierz powiadomienie."); if (MessageBox.Show("Potwierdzasz, że sprawdziłeś skrzynkę i ta wiadomość rzeczywiście dotarła? Program oznaczy ją jako wysłaną i nie ponowi wysyłki.", "Potwierdzenie odbioru", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return; await mail.MarkReceivedAsync(SelectedNotification.Id, Token); await RefreshAsync(); });

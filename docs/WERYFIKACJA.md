@@ -5,7 +5,7 @@
 - Zainstalowano oficjalny SDK .NET 10.0.401; SHA512 archiwum zgadza się z metadanymi wydania Microsoft.
 - `scripts/setup-cloud.sh`: odtwarzanie zależności z lockfile, kompilacja wszystkich siedmiu projektów (również WPF przez EnableWindowsTargeting), testy.
 - Kompilacja: 0 błędów, 0 ostrzeżeń.
-- 80 testów: 80 zaliczonych, 0 niezaliczonych, 0 pominiętych. Testy sprawdzają migracje SQLite, deduplikację, korekty, osie i rozmiary, pełne sekcje DOCX, prompty, JSON, intro, jakość, podobieństwo, kontrakty HTTP OpenAI/Anthropic, generowanie PL/EN z mock AI i obrazami, ograniczenia prób/kosztów, brak zużycia galerii w dry-run, historię regenerowania, dokumenty i zdjęcia w DOCX/HTML/TXT/ZIP, XML harmonogramu, blokadę procesów, warunki pełnego powiadomienia oraz jego niepewny stan i ręczne potwierdzenie.
+- 102 testy: 102 zaliczone, 0 niezaliczonych, 0 pominiętych. Testy sprawdzają migracje SQLite, deduplikację, korekty, osie i rozmiary, pełne sekcje DOCX, prompty, JSON, intro, jakość, podobieństwo, kontrakty HTTP OpenAI/Anthropic, generowanie PL/EN z mock AI i obrazami, ograniczenia prób/kosztów, brak zużycia galerii w dry-run, historię regenerowania, dokumenty i zdjęcia w DOCX/HTML/TXT/ZIP, XML harmonogramu, blokadę procesów, warunki pełnego powiadomienia oraz jego niepewny stan i ręczne potwierdzenie.
 - Testy dokumentu: oryginalny DOCX, kompletność wszystkich linii wymagań, dynamiczne dane galerii, brak wycieku konfiguracji przykładowych, gotowe szablony przy instalacji, idempotentny import, rozpoznawanie treści po SHA256 oraz aktualizacja bez nadpisania edycji użytkownika.
 - Testy /blog: wszystkie trzy rzeczywiste struktury HTML, paginacja, wspólne zdjęcia, możliwy duplikat, pomijanie nawigacji i polecanych wpisów, błąd sieci i brak kosztu AI przy blokadzie. Test pełnego klienta HTTP wykrywa wpis z drugiej strony i sprawdza, że niepełny skan nie trafia do cache.
 - Testy na lokalnych fragmentach rzeczywistego HTML wszystkich trzech marek. Oddzielna syntetyczna próbka nie jest przedstawiana jako źródło produkcyjne.
@@ -43,3 +43,9 @@
 10. Powtórz synchronizację i cykl tego samego tygodnia; sprawdź brak duplikatów i zachowanie historii.
 
 Projekt nie jest opisany jako w pełni odebrany, dopóki powyższe warunki nie zostaną sprawdzone. Aktualne pliki i testy umożliwiają wykonanie tej próby bez tworzenia makiet funkcji.
+
+## Przygotowanie zestawu w tle — 0.3.0
+
+Testy sprawdzają utworzenie trzech artykułów (po jednym dla każdej marki), pomijanie pobierania i AI przy gotowym zestawie, uzupełnienie tylko brakującej marki, uzupełnienie po oznaczeniu publikacji, wznowienie częściowego zadania w tym samym budżecie, wyłączenie automatyki i brak klucza przed pobieraniem, wykluczenie krótkich lub błędnych wersji oraz XML logowania/cyklicznego zadania. Testy używają syntetycznego AI i nie wysyłają poczty.
+
+CI na Windows uruchamia okienkowo niewidoczny Worker i sprawdza powstanie bazy. Dodatkowo eksportuje prawdziwą definicję przygotowania w tle, rejestruje ją w Harmonogramie z wyłączonym wykonaniem, sprawdza jej obecność i usuwa zadanie testowe. Nie uruchamia AI ani nie wysyła e-maili. Rzeczywiste działanie automatyki na komputerze użytkownika wymaga jego zapisanych ustawień i klucza DPAPI.

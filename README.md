@@ -12,16 +12,25 @@ Aplikacja desktopowa dla Windows 11, przygotowująca artykuły o konfiguracjach 
 
 Paczka jest niepodpisana cyfrowo. Windows może wyświetlić informację o nieznanym wydawcy. Nazwa repozytorium pozostaje `blog`; nazwa programu to Wheel Content Manager.
 
+## Aktualizacja do wersji 0.2.0
+
+1. Poczekaj na zakończenie generowania i zamknij program. Worker z Harmonogramu również musi zakończyć pracę.
+2. Pobierz najnowszą zieloną paczkę **WheelContentManager-Windows** z Actions, rozpakuj i uruchom **WheelContentManager-Setup.exe**.
+3. Zainstaluj w dotychczasowym folderze, na tym samym koncie Windows. Nie trzeba odinstalowywać starej wersji.
+4. Uruchom program. Baza, artykuły, klucze API, poczta i historia pozostają w `%LOCALAPPDATA%\WheelContentManager`. Starsze ustawienia długości zmienią się automatycznie na 2200–2600 słów, a eksport zdjęć zostanie wyłączony. Budżet cyklu, ceny i dane poczty są zachowane. Nietknięte wbudowane prompty otrzymają nową wersję; własne edycje pozostają.
+
+Dla wersji przenośnej zastąp całą paczkę programu wraz z podfolderem `Worker` w dotychczasowej lokalizacji; nie mieszaj DLL różnych wersji. Kopię zapasową katalogu danych można wykonać po zamknięciu aplikacji i Workera.
+
 ## Pierwsze uruchomienie
 
-Kreator przeprowadza przez cztery kroki. Wszystkie ustawienia można później zmienić.
+Kreator przeprowadza przez cztery kroki. Ustawienia kont i działania można później zmienić; długość artykułów jest ustalona według wpisu referencyjnego.
 
 1. **AI:** wybierz OpenAI lub Anthropic, wprowadź klucz API i pobierz modele. Wybierz model obsługujący obrazy i generowanie JSON. Wpisz aktualne ceny wejścia/wyjścia na milion tokenów w USD. API jest rozliczane osobno od abonamentu ChatGPT lub Claude.
 2. **E-mail:** podaj SMTP, port, STARTTLS lub SSL/TLS, login, hasło aplikacji oraz nadawcę i odbiorcę. Przycisk testowy wysyła rzeczywistą wiadomość do tego odbiorcy.
 3. **Pliki:** wybierz folder eksportu. Domyślnie dokumenty są w `%LOCALAPPDATA%\WheelContentManager\Artykuly`.
 4. **Prompty:** program ma już trzy zweryfikowane szablony przygotowane z dostarczonego `Wpisy na bloga.docx`. Przykłady samochodów i felg zastąpiono zmiennymi, a dane techniczne wymagają potwierdzenia ze źródeł. Możesz je przeczytać i edytować w **Prompty AI**. Import tego samego dokumentu rozpoznaje jego zawartość i przywraca gotowe szablony. Inny dokument zachowuje pełne sekcje JR/CVR/VSR, ale wymaga sprawdzenia przykładów i potwierdzenia przed generowaniem.
 
-**Dokument redakcyjny jest dołączony:** [Wpisy na bloga.docx](docs/editorial/Wpisy%20na%20bloga.docx). Pełne teksty sekcji i opis adaptacji znajdują się w `docs/editorial`. Aktualizacja dodaje nową wersję tylko do nietkniętych starych szablonów roboczych; własne edycje użytkownika pozostają zachowane. „Przywróć domyślny” zawsze przywraca aktualny szablon z dokumentu, zachowując historię.
+**Dokument redakcyjny jest dołączony:** [Wpisy na bloga.docx](docs/editorial/Wpisy%20na%20bloga.docx). Pełne teksty sekcji i opis adaptacji znajdują się w `docs/editorial`. Aktualizacja dodaje nową wersję do rozpoznanych, nietkniętych starszych szablonów wbudowanych; własne edycje użytkownika pozostają zachowane. „Przywróć domyślny” zawsze przywraca aktualny szablon z dokumentu, zachowując historię.
 
 Zmienne szablonu: `{CAR_MAKE}`, `{CAR_MODEL}`, `{CAR_VERSION}`, `{WHEEL_BRAND}`, `{WHEEL_MODEL}`, `{WHEEL_FINISH}`, `{FRONT_SIZE}`, `{REAR_SIZE}`, `{AVAILABLE_SIZES}`, `{PRODUCT_URL}`, `{GALLERY_URL}`, `{VERIFIED_CERTIFICATIONS}`, `{PHOTO_ANALYSIS}`, `{VERIFIED_PRODUCT_DETAILS}`. Ich wartości są przekazywane jako dane JSON; dane witryn nie stają się nadrzędnymi instrukcjami AI.
 
@@ -30,9 +39,11 @@ Zmienne szablonu: `{CAR_MAKE}`, `{CAR_MODEL}`, `{CAR_VERSION}`, `{WHEEL_BRAND}`,
 - **Sprawdź galerie** wykrywa wszystkie wpisy list, respektuje paginację i uzupełnia szczegóły trzech najnowszych niewykorzystanych konfiguracji z podanym modelem felg dla każdej marki. Pozostałe szczegóły pobierane są na żądanie — nie ma potrzeby wykonywania tysięcy zapytań przy pierwszej synchronizacji.
 - W **Galeriach** wybierz samochód i kliknij **Pobierz szczegóły i zdjęcia**. Sprawdź dane, źródła i przypisanie osi. Nieznane ET, PCD, wersja samochodu czy homologacja pozostają nieznane.
 - Po ręcznej korekcie potwierdź źródło parametrów i zapisz. Nie zgaduj brakujących danych. W najnowszych galeriach Concaver w dniu inspekcji brakowało nazwy felg; program raportuje ten stan.
-- Potwierdź prawo do użycia zdjęć, które mają trafić do eksportu. Zdjęcia źródłowe są pobierane do analizy AI; eksport zdjęć jest ograniczony do tych z potwierdzonym prawem użycia.
+- Domyślnie eksport zawiera same teksty. Jeśli włączysz opcjonalny eksport zdjęć, potwierdź prawo do ich użycia. Zdjęcia źródłowe są pobierane do analizy AI; eksport zdjęć jest ograniczony do tych z potwierdzonym prawem użycia.
 - **Test AI bez wykorzystania galerii** wykonuje prawdziwe płatne zapytania, ale nie zapisuje artykułu, nie zużywa galerii i nie wysyła maila. Wynik można przeczytać i skopiować.
-- **Generuj cykl 3 marek** wybiera niewykorzystane galerie, analizuje zdjęcia i generuje osobno PL oraz EN. Każdy język ma kontrolę programistyczną i dodatkowy audyt AI. Domyślna długość to 1200–1800 słów. Błędne lub brakujące wersje nie mają statusu „Gotowy”.
+- **Zaproponuj tematy** na Pulpicie pobiera ostatnie dziesięć wpisów każdej marki, uwzględnia gotowe lokalne artykuły i pokazuje uzasadnienie. Cykl używa tej samej kolejności i przelicza ją po każdym artykule, aby różnicować modele felg. Sugestia nie zastępuje pełnej kontroli duplikatów na wszystkich podstronach `/blog`.
+- Przed każdym generowaniem program ponownie pobiera oficjalną kartę produktu i potwierdza model. Opis, rozmiary i ewentualne certyfikaty trafiają do AI jako dane ze źródłami. Brak karty lub opis innego modelu blokuje generowanie. Nazwy konfiguracji i potwierdzone parametry służą naturalnej treści dla wyszukiwarek, bez zgadywania danych.
+- **Generuj cykl 3 marek** wybiera niewykorzystane galerie, analizuje zdjęcia i generuje osobno PL oraz EN. Każdy język ma kontrolę programistyczną i dodatkowy audyt AI. Stała długość w interfejsie to 2200–2600 słów treści głównej na każdy język, zgodnie ze wskazanym wpisem Nissan Z / SL03 (2314 słów samej treści głównej). Błędne lub brakujące wersje nie mają statusu „Gotowy”.
 - Edytuj tekst w **Artykułach**. Każdy zapis tworzy kolejną wersję. Eksport wybranego języka lub obu tworzy DOCX, HTML, TXT, metadane i folder zdjęć.
 - **Zatwierdź** oznacza świadomą akceptację redakcyjną. **Oznacz jako opublikowany** zmienia wyłącznie lokalny status.
 

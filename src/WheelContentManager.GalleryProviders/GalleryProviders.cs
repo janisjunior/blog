@@ -141,12 +141,14 @@ public abstract class ProfileGalleryProvider(SiteClient client, string profilesF
             var make = makes.FirstOrDefault(x => (g.Vehicle.Model ?? "").StartsWith(x + " ", StringComparison.OrdinalIgnoreCase));
             if (make != null) { g.Vehicle.Make = make; g.Vehicle.Model = g.Vehicle.Model![(make.Length + 1)..]; g.Sources.RemoveAll(x => x.Field is "CarMake" or "CarModel"); g.Sources.AddRange([new() { Field = "CarMake", Value = make, Url = IndexUrl.AbsoluteUri, Confirmed = true }, new() { Field = "CarModel", Value = g.Vehicle.Model, Url = g.Url, Confirmed = true }]); }
         }
+        if (g.Specification.ProductUrl == null || p.ProductFieldsXPath.Count == 0) throw new InvalidOperationException("Brak karty modelu felg. Uzupełnij źródło przed przygotowaniem artykułu.");
         if (g.Specification.ProductUrl != null && p.ProductFieldsXPath.Count > 0)
         {
             var productUri = new Uri(g.Specification.ProductUrl); var product = new HtmlDocument(); product.LoadHtml(await client.GetAsync(productUri, false, ct));
             var productName = p.ProductNameXPath == null ? "" : Clean(product.DocumentNode.CreateNavigator().Evaluate("string(" + p.ProductNameXPath + ")")?.ToString() ?? "");
             var modelToken = g.Specification.Model?.Split(' ', StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
-            if (modelToken == null || !productName.Contains(modelToken, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Karta produktu nie potwierdza modelu felg z galerii.");
+            if (modelToken == null || TopicPlanner.Model(productName) != TopicPlanner.Model(modelToken)) throw new InvalidOperationException("Karta produktu nie potwierdza modelu felg z galerii.");
+            g.Sources.Add(new() { Field = "ProductModel", Value = g.Specification.Model, Url = g.Specification.ProductUrl, Confirmed = true });
             foreach (var field in p.ProductFieldsXPath)
             {
                 var matches = product.DocumentNode.CreateNavigator().Select(field.Value); var values = new List<string>(); while (matches.MoveNext()) values.Add(Clean(matches.Current!.Value)); var value = string.Join(", ", values.Where(x => x.Length > 0).Distinct()); if (value.Length == 0) continue;

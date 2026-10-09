@@ -59,7 +59,7 @@ Car model: {CAR_MODEL}
 ZASADY WYKONANIA W APLIKACJI:
 W tym pojedynczym zadaniu napisz wyłącznie język wskazany przez aplikację w instrukcji „Pole language”. Wymóg dwóch wersji z dokumentu realizują dwa osobne zadania PL i EN, a nie dwa artykuły w jednej odpowiedzi. ENG z dokumentu odpowiada kodowi EN.
 Tytuł i intro są osobnymi polami JSON; zakaz nagłówków i list dotyczy pola body. Nagłówki i listy powyżej opisują wymagania promptu, nie strukturę artykułu.
-Docelowy zakres słów pochodzi z ustawień zadania; zachowaj bardzo długą, szczegółową narrację. Domyślne 1200–1800 słów nie skraca wymagań stylistycznych dokumentu.
+Docelowy zakres słów pochodzi z ustawień zadania; zachowaj bardzo długą, szczegółową narrację. Stały zakres w aplikacji to 2200–2600 słów na język, według obszernego wpisu Nissan Z / SL03. Rozwijaj różne aspekty konfiguracji bez powtórzeń i bez dopisywania niepotwierdzonych faktów.
 Wysokie nasycenie słownictwem musi pozostać naturalne. Frazy lightweight, forged, deep concave, multi-spoke i twierdzenia o lekkości, wytrzymałości, kompatybilności, personalizacji lub homologacji stosuj wyłącznie zgodnie z potwierdzonymi faktami albo rzeczywistymi obserwacjami wyglądu. Nie wymyślaj masy ani właściwości fizycznych na podstawie zdjęcia.
 Sprzedażowy charakter PL i budowanie chęci posiadania wynikają z opisu jakości oraz efektu wizualnego. Bez bezpośrednich wezwań do zakupu, zwrotów do czytelnika i wzmiankowania klientów lub dealerów.
 Przykładowe nazwy modeli CVR1/CVR2 oraz średnice w nawiasach objaśniają sposób zapisu. Nie zastępują modelu i rozmiarów z bindings. Konfiguracje przykładowe z sekcji WHEEL DETAILS/CAR DETAILS zostały zastąpione zmiennymi.

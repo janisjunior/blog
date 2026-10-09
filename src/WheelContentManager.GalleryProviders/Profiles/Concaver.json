@@ -25,7 +25,7 @@
   "MaxPages": 20,
   "MakesXPath": "//select[@name='brand']/option",
   "ProductFieldsXPath": {
-    "ProductDetails": "//meta[@name='description']/@content",
+    "ProductDetails": "//meta[@name='description']/@content | //div[@class='product_full_content_text']",
     "AvailableSizes": "//li[contains(@class,'click_size')]/@data-size"
   },
   "ProductNameXPath": "//title"

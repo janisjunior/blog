@@ -106,11 +106,22 @@ internal sealed class MockAi : IAiProvider
 }
 internal sealed class FixtureProvider(WheelBrand brand, string imagePath) : IGalleryProvider
 {
+    public bool MissingProduct { get; set; } public bool WrongProduct { get; set; } public int Loads { get; private set; }
     public WheelBrand Brand => brand; public Uri IndexUrl => new("https://fixture.example/");
+    public Task<Gallery> LoadAsync(string url, CancellationToken ct)
+    {
+        Loads++; var g = Fixtures.Gallery(brand); g.Images[0].LocalPath = imagePath;
+        if (MissingProduct) return Task.FromResult(g);
+        g.Specification.ProductUrl = "https://fixture.example/product/" + brand;
+        g.Specification.ProductDetails = "Potwierdzona karta modelu do testu.";
+        g.Sources.AddRange([new() { Field = "ProductModel", Value = WrongProduct ? "JR99" : g.Specification.Model, Url = g.Specification.ProductUrl, Confirmed = true }, new() { Field = "ProductDetails", Value = g.Specification.ProductDetails, Url = g.Specification.ProductUrl, Confirmed = true }]);
+        return Task.FromResult(g);
+    }
     public Task<IReadOnlyList<Gallery>> DiscoverAsync(CancellationToken ct) { var g = Fixtures.Gallery(brand); g.Images[0].LocalPath = imagePath; return Task.FromResult<IReadOnlyList<Gallery>>([g]); }
 }
 internal sealed class TestEnvironment : IAsyncDisposable
 {
+    public List<FixtureProvider> Providers { get; } = [];
     public ServiceProvider Services { get; private set; } = null!; public string Root { get; private set; } = ""; public MockAi Ai { get; } = new(); public MockBlog Blog { get; } = new();
     public IDbContextFactory<ContentDb> Factory => Services.GetRequiredService<IDbContextFactory<ContentDb>>(); public ContentService Content => Services.GetRequiredService<ContentService>();
     public static async Task<TestEnvironment> CreateAsync()
@@ -118,7 +129,7 @@ internal sealed class TestEnvironment : IAsyncDisposable
         var env = new TestEnvironment { Root = Path.Combine(Path.GetTempPath(), "wcm-tests-" + Guid.NewGuid()) }; var paths = new AppPaths(env.Root); var image = Path.Combine(env.Root, "fixture.png");
         File.WriteAllBytes(image, Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/u94AAAAASUVORK5CYII="));
         var services = new ServiceCollection(); services.AddLogging(); services.AddSingleton(paths); services.AddDbContextFactory<ContentDb>(o => o.UseSqlite("Data Source=" + paths.Database)); services.AddSingleton<ISecretStore, MemorySecrets>(); services.AddSingleton<IAiProvider>(env.Ai);
-        foreach (var b in Enum.GetValues<WheelBrand>()) services.AddSingleton<IGalleryProvider>(new FixtureProvider(b, image));
+        foreach (var b in Enum.GetValues<WheelBrand>()) { var provider = new FixtureProvider(b, image); env.Providers.Add(provider); services.AddSingleton<IGalleryProvider>(provider); }
         services.AddSingleton<SettingsService>(); services.AddSingleton<PromptService>(); services.AddSingleton<ExportService>(); services.AddSingleton<NotificationService>(); services.AddSingleton<ContentService>(); services.AddSingleton<IBlogPublicationChecker>(env.Blog); services.AddHttpClient();
         env.Services = services.BuildServiceProvider(); await Bootstrap.InitializeAsync(env.Services); var settings = Fixtures.Settings(); settings.ExportFolder = paths.Exports; await env.Services.GetRequiredService<SettingsService>().SaveAsync(settings); return env;
     }
@@ -126,4 +137,4 @@ internal sealed class TestEnvironment : IAsyncDisposable
     public async ValueTask DisposeAsync() { await Services.DisposeAsync(); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); Directory.Delete(Root, true); }
 }
 
-internal sealed class MockBlog : IBlogPublicationChecker { public BlogCheck Result { get; set; } = new(false, false, null, "test"); public bool Timeout { get; set; } public bool Fail { get; set; } public Task<BlogCheck> CheckAsync(Gallery g, CancellationToken ct) => Timeout ? throw new TaskCanceledException("timeout") : Fail ? throw new HttpRequestException("test") : Task.FromResult(Result); }
+internal sealed class MockBlog : IBlogPublicationChecker { public IReadOnlyList<RecentBlogPost> Posts { get; set; } = []; public WheelBrand? RecentFailure { get; set; } public Task<IReadOnlyList<RecentBlogPost>> RecentAsync(WheelBrand brand, CancellationToken ct) => brand == RecentFailure ? throw new HttpRequestException("recent unavailable") : Task.FromResult(Posts); public BlogCheck Result { get; set; } = new(false, false, null, "test"); public bool Timeout { get; set; } public bool Fail { get; set; } public Task<BlogCheck> CheckAsync(Gallery g, CancellationToken ct) => Timeout ? throw new TaskCanceledException("timeout") : Fail ? throw new HttpRequestException("test") : Task.FromResult(Result); }

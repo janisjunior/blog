@@ -24,6 +24,10 @@ try
     }
     else if (args.Contains("--sync")) Console.WriteLine(await service.SyncAsync(progress, cancellation.Token));
     else if (Array.IndexOf(args, "--check-blog") is var bi && bi >= 0 && bi + 1 < args.Length && long.TryParse(args[bi + 1], out var blogId)) Console.WriteLine(await service.CheckBlogAsync(blogId, cancellation.Token));
+    else if (args.Contains("--suggest-topics"))
+    {
+        foreach (var topic in await service.SuggestTopicsAsync(ct: cancellation.Token)) Console.WriteLine($"{topic.Gallery.Id}: {topic.Gallery.Display}\n{topic.Reason}\nOstatni wpis: {topic.LatestPostUrl ?? "lokalny artykuł"}");
+    }
     else if (args.Contains("--diagnose"))
     {
         var paths = host.Services.GetRequiredService<AppPaths>();

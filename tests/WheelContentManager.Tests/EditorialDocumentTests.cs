@@ -30,7 +30,7 @@ public class EditorialDocumentTests
             Assert.Contains(line.Replace("[car model]", "{CAR_MODEL}").Replace("[model auta]", "{CAR_MODEL}"), template);
         }
         Assert.Contains("{VERIFIED_CERTIFICATIONS}", template); Assert.Contains("{AVAILABLE_SIZES}", template);
-        Assert.Contains("dwa osobne zadania PL i EN", template); Assert.Contains("1200–1800", template);
+        Assert.Contains("dwa osobne zadania PL i EN", template); Assert.Contains("2200–2600", template);
     }
     [Theory][InlineData(WheelBrand.JR)][InlineData(WheelBrand.Concaver)][InlineData(WheelBrand.Vesser)]
     public void TemplatesRenderSelectedGalleryWithoutLeakingExampleConfiguration(WheelBrand brand)

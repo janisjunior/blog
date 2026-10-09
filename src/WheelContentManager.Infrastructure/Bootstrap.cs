@@ -21,7 +21,7 @@ public static class Bootstrap
         builder.Services.AddHttpClient<SiteClient>(h => { h.Timeout = TimeSpan.FromSeconds(45); h.DefaultRequestHeaders.UserAgent.ParseAdd("WheelContentManager/1.0"); });
         var profiles = Path.Combine(paths.Root, "Profiles"); Directory.CreateDirectory(profiles);
         var shipped = Path.Combine(AppContext.BaseDirectory, "Profiles");
-        if (Directory.Exists(shipped)) foreach (var profile in Directory.EnumerateFiles(shipped, "*.json")) if (!File.Exists(Path.Combine(profiles, Path.GetFileName(profile)))) File.Copy(profile, Path.Combine(profiles, Path.GetFileName(profile)));
+        SourceProfileInstaller.Install(shipped, profiles);
         builder.Services.AddTransient<IGalleryProvider>(sp => new JrGalleryProvider(sp.GetRequiredService<SiteClient>(), profiles));
         builder.Services.AddTransient<IGalleryProvider>(sp => new ConcaverGalleryProvider(sp.GetRequiredService<SiteClient>(), profiles));
         builder.Services.AddTransient<IGalleryProvider>(sp => new VesserGalleryProvider(sp.GetRequiredService<SiteClient>(), profiles));
@@ -41,9 +41,9 @@ public static class Bootstrap
             else
             {
                 var current = template.Versions.MaxBy(x => x.Revision)!;
-                // Aktualizuj wyłącznie oryginalny, nietknięty szablon roboczy; zachowaj edycje użytkownika i historię.
-                if (current.Revision == 1 && current.Origin == PromptService.LegacyDefaultOrigin && !current.EditorialDocumentVerified && current.Content.StartsWith("# Szablon roboczy — wymaga dokumentu redakcyjnego"))
-                    template.Versions.Add(new() { Revision = 2, Content = PromptService.Default(brand), Origin = PromptService.DefaultOrigin, EditorialDocumentVerified = true });
+                // Aktualizuj tylko rozpoznane, nietknięte szablony wbudowane; zachowaj edycje użytkownika i historię.
+                if (PromptService.IsPreviousBuiltIn(brand, current.Content) || (current.Revision == 1 && current.Origin == PromptService.LegacyDefaultOrigin && !current.EditorialDocumentVerified && current.Content.StartsWith("# Szablon roboczy — wymaga dokumentu redakcyjnego")))
+                    template.Versions.Add(new() { Revision = current.Revision + 1, Content = PromptService.Default(brand), Origin = PromptService.DefaultOrigin, EditorialDocumentVerified = true });
             }
         }
         await db.SaveChangesAsync(ct);

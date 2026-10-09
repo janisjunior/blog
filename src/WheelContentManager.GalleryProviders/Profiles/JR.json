@@ -26,7 +26,7 @@
   "MakesXPath": "//select[@name='producent']/option",
   "ProductFieldsXPath": {
     "AvailableSizes": "//div[contains(@class,'product_present_info_sizes_ul')]",
-    "ProductDetails": "//meta[@name='description']/@content"
+    "ProductDetails": "//meta[@name='description']/@content | //div[@class='product_variant_li_max_method']"
   },
   "ProductNameXPath": "//title"
 }

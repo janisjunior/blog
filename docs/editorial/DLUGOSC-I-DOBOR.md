@@ -1,0 +1,11 @@
+# Długość i dobór tematów — wersja 0.2.0
+
+Na życzenie użytkownika długość ustalono według https://jr-wheels.com/blog/nissan-z-na-felgach-sl03, odczytanego 2026-10-09. Liczenie `Normalization.Words` drugiego `div.blog-content-dec` (treść główna, bez tytułu, intro, zdjęć i nawigacji) dało 2314 słów. Zakres w interfejsie: 2200–2600 słów `body` osobno dla PL i EN. Walidacja odrzuca tekst poza zakresem; nie wystarczy deklaracja modelu AI. Starsze ustawienia są jednorazowo aktualizowane; dane poczty, folder eksportu i limit kosztów pozostają.
+
+Ostatnie dziesięć publikacji jest pobierane osobno dla każdej marki, z tytułem, datą i rozpoznanymi modelami. Lista sugestii preferuje model różny od ostatniego, potem modele rzadsze w trzech i dziesięciu ostatnich wpisach. Uwzględnia też lokalne gotowe, zatwierdzone i opublikowane artykuły. Kolejność jest ponownie liczona po każdym przygotowanym artykule cyklu. Gdy istnieje tylko powtarzający się model, pozostaje dostępny z jawnym ostrzeżeniem. Sugestie są wstępne: przed AI nadal obowiązuje pełna kontrola duplikatów wszystkich podstron /blog.
+
+Każde generowanie ponownie odczytuje galerię i oficjalną kartę modelu. Potwierdzenie tożsamości produktu i opis są wymagane przed płatnym wywołaniem AI. Pobierane są dostępne rozmiary oraz opisy i technologie faktycznie wymienione na karcie. JR: opis meta i metoda wykonania wariantów; Concaver: opis meta i pełny opis produktu; Vesser: opis modelu i dostępne rozmiary. Ogólny link menu do TÜV nie potwierdza certyfikacji modelu. Profile są uaktualniane tylko dla rozpoznanych nietkniętych starszych kopii; własne selektory pozostają.
+
+Zdjęcia nadal służą analizie wizualnej i kontroli duplikatów. Domyślny eksport DOCX/HTML/TXT i ZIP nie zawiera zdjęć. Eksport tekstowy ma osobny katalog `-text`, aby wcześniejsze eksporty ze zdjęciami nie trafiały do nowej paczki. Eksport zdjęć można jawnie włączyć.
+
+Po cyklu otwarta aplikacja wyświetla wynik. Worker i aplikacja tworzą powiadomienie e-mail po zakończeniu cyklu; do wysłania wymagane są prawidłowe dane SMTP. Błąd doboru dla jednej marki nie przerywa przygotowania pozostałych i tworzy raport częściowego wykonania. Własne edycje promptów zachowują historię; zaktualizowany zakres długości jest podawany w instrukcji każdego zadania.

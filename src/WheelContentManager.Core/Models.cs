@@ -84,9 +84,12 @@ public class ErrorLog { public long Id { get; set; } public DateTimeOffset Creat
 public class AppSettings
 {
     public string AiProvider { get; set; } = "OpenAI"; public string AiModel { get; set; } = "";
-    public int MinWords { get; set; } = 1200; public int MaxWords { get; set; } = 1800;
+    public const int ReferenceMinWords = 2200, ReferenceMaxWords = 2600;
+    public int EditorialPolicyVersion { get; set; } = 1;
+    public int MinWords { get; set; } = ReferenceMinWords; public int MaxWords { get; set; } = ReferenceMaxWords;
+    public bool ExportImages { get; set; }
     public int MaxImages { get; set; } = 4; public int MaxRetries { get; set; } = 2;
-    public int MaxOutputTokens { get; set; } = 6500; public int MaxTokensPerCycle { get; set; } = 120000;
+    public int MaxOutputTokens { get; set; } = 12000; public int MaxTokensPerCycle { get; set; } = 120000;
     public decimal MaxCycleCost { get; set; } = 10m; public decimal InputPricePerMillion { get; set; } = 0; public decimal OutputPricePerMillion { get; set; } = 0;
     public string SmtpHost { get; set; } = ""; public int SmtpPort { get; set; } = 587; public string SmtpSecurity { get; set; } = "StartTls";
     public string SmtpUser { get; set; } = ""; public string MailFrom { get; set; } = ""; public string MailTo { get; set; } = "";
@@ -193,4 +196,10 @@ public static class ArticleValidator
 }
 
 public sealed record BlogCheck(bool Published, bool PossibleDuplicate, string? Url, string Message);
-public interface IBlogPublicationChecker { Task<BlogCheck> CheckAsync(Gallery gallery, CancellationToken ct); }
+public record RecentBlogPost(string Url, string Title, DateTimeOffset? Published, IReadOnlyList<string> WheelModels);
+public interface IBlogPublicationChecker
+{
+    Task<BlogCheck> CheckAsync(Gallery gallery, CancellationToken ct);
+    Task<IReadOnlyList<RecentBlogPost>> RecentAsync(WheelBrand brand, CancellationToken ct);
+}
+public record TopicSuggestion(Gallery Gallery, string Reason, string? LatestPostUrl);

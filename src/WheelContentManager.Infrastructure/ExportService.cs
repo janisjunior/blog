@@ -14,10 +14,10 @@ namespace WheelContentManager.Infrastructure;
 
 public sealed class ExportService
 {
-    public async Task<string> ExportAsync(Article article, string root, string? language = null, CancellationToken ct = default)
+    public async Task<string> ExportAsync(Article article, string root, string? language = null, CancellationToken ct = default, bool includeImages = true)
     {
-        var g = article.Gallery; var folder = Path.Combine(root, Normalization.SafeName(g.Brand.Name()), Normalization.SafeName(g.Vehicle.Display + "-" + g.Specification.Model) + "-" + article.Id);
-        Directory.CreateDirectory(folder); Directory.CreateDirectory(Path.Combine(folder, "images"));
+        var g = article.Gallery; var folder = Path.Combine(root, Normalization.SafeName(g.Brand.Name()), Normalization.SafeName(g.Vehicle.Display + "-" + g.Specification.Model) + "-" + article.Id + (includeImages ? "" : "-text"));
+        Directory.CreateDirectory(folder); if (includeImages) Directory.CreateDirectory(Path.Combine(folder, "images"));
         foreach (var v in article.Versions.GroupBy(x => x.Language).Select(x => x.MaxBy(y => y.Revision)!).Where(x => language == null || x.Language == language))
         {
             var metadata = $"{g.Vehicle.Display} | {g.Brand.Name()} {g.Specification.Model} | {g.Specification.Finish}\nPrzód: {g.Specification.FrontSize ?? "nieznany"}; tył: {g.Specification.RearSize ?? "nieznany"}\nŹródło: {g.Url}";
@@ -25,13 +25,13 @@ public sealed class ExportService
             var stem = Path.Combine(folder, "article_" + v.Language);
             await File.WriteAllTextAsync(stem + ".txt", text, new UTF8Encoding(false), ct);
             var e = HtmlEncoder.Default;
-            var photos = g.Images.Where(x => x.UsageAllowed && x.LocalPath != null && File.Exists(x.LocalPath)).ToArray();
+            var photos = g.Images.Where(x => includeImages && x.UsageAllowed && x.LocalPath != null && File.Exists(x.LocalPath)).ToArray();
             var photoHtml = string.Concat(photos.Select(x => "<figure><img alt=\"" + e.Encode(g.Vehicle.Display) + "\" src=\"images/" + e.Encode(Path.GetFileName(x.LocalPath!)) + "\" style=\"max-width:100%\"></figure>"));
             var html = "<!doctype html><html lang=\"" + v.Language.ToLowerInvariant() + "\"><meta charset=\"utf-8\"><title>" + e.Encode(v.Title) + "</title><body><article><h1>" + e.Encode(v.Title) + "</h1><p>" + e.Encode(v.Intro) + "</p>" + string.Concat(v.Body.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(p => "<p>" + e.Encode(p) + "</p>")) + photoHtml + "</article><footer><pre>" + e.Encode(metadata) + "</pre></footer></body></html>";
             await File.WriteAllTextAsync(stem + ".html", html, ct);
             await Task.Run(() => WriteDocument(stem + ".docx", text, photos, ct), ct);
         }
-        foreach (var image in g.Images.Where(x => x.UsageAllowed && x.LocalPath != null && File.Exists(x.LocalPath)))
+        foreach (var image in g.Images.Where(x => includeImages && x.UsageAllowed && x.LocalPath != null && File.Exists(x.LocalPath)))
             File.Copy(image.LocalPath!, Path.Combine(folder, "images", Path.GetFileName(image.LocalPath!)), true);
         await File.WriteAllTextAsync(Path.Combine(folder, "metadata.json"), JsonSerializer.Serialize(new { article.Id, article.Status, article.Created, article.PromptVersionId, Gallery = new { g.Brand, g.Vehicle.Make, g.Vehicle.Model, g.Url, g.Specification, Sources = g.Sources.Select(x => new { x.Field, x.Value, x.Url, x.Confirmed }), Images = g.Images.Select(x => new { x.Url, x.UsageAllowed }) } }, new JsonSerializerOptions { WriteIndented = true }), ct);
         return folder;

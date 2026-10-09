@@ -13,6 +13,8 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly ContentService content; private readonly SettingsService settingsService; private readonly PromptService prompts; private readonly ISecretStore secrets; private readonly NotificationService mail; private readonly WindowsScheduler scheduler;
     private CancellationTokenSource? work;
+    public ObservableCollection<TopicSuggestion> Suggestions { get; } = [];
+    [ObservableProperty] private TopicSuggestion? selectedSuggestion;
     public ObservableCollection<Gallery> Galleries { get; } = []; public ObservableCollection<Article> Articles { get; } = []; public ObservableCollection<ErrorLog> Logs { get; } = []; public ObservableCollection<AutomationRun> Runs { get; } = []; public ObservableCollection<PromptVersion> PromptHistory { get; } = []; public ObservableCollection<string> Models { get; } = []; public ObservableCollection<NotificationHistory> Notifications { get; } = [];
     [ObservableProperty] private NotificationHistory? selectedNotification;
     public ICollectionView GalleryView { get; } public ICollectionView ArticleView { get; }
@@ -115,8 +117,16 @@ public partial class MainViewModel : ObservableObject
     private CancellationToken Token => work?.Token ?? CancellationToken.None;
     [RelayCommand] private void Cancel() => work?.Cancel();
     [RelayCommand] private Task Refresh() => RunAsync(RefreshAsync);
-    [RelayCommand] private Task Sync() => RunAsync(async () => { Report = await Background((progress, token) => content.SyncAsync(progress, token)); await RefreshAsync(); Status = "Sprawdzanie galerii zakończono — zobacz raport"; });
-    [RelayCommand] private Task GenerateCycle() => RunAsync(async () => { Report = await Background((progress, token) => content.RunCycleAsync(false, progress, token)); await RefreshAsync(); Status = "Cykl zakończony — zobacz raport"; });
+    [RelayCommand] private Task Sync() => RunAsync(async () => { Report = await Background((progress, token) => content.SyncAsync(progress, token)); await RefreshAsync(); try { await LoadSuggestionsAsync(); } catch (Exception e) when (e is not OperationCanceledException) { Suggestions.Clear(); Report += "\nSugestie niedostępne: " + e.Message; } Status = "Sprawdzanie galerii zakończono — zobacz raport"; });
+    [RelayCommand] private Task SuggestTopics() => RunAsync(LoadSuggestionsAsync);
+    private async Task LoadSuggestionsAsync()
+    {
+        var token = Token; var topics = await Task.Run(() => content.SuggestTopicsAsync(ct: token), token);
+        Suggestions.Clear(); foreach (var topic in topics) Suggestions.Add(topic);
+        Status = "Propozycje uwzględniają ostatnie wpisy /blog i gotowe artykuły. Przed AI program sprawdzi duplikaty i kartę modelu.";
+    }
+    [RelayCommand] private void OpenSuggestedGallery() { if (SelectedSuggestion == null) return; SelectedGallery = Galleries.FirstOrDefault(g => g.Id == SelectedSuggestion.Gallery.Id); SelectedTab = 1; }
+    [RelayCommand] private Task GenerateCycle() => RunAsync(async () => { Report = await Background((progress, token) => content.RunCycleAsync(false, progress, token)); await RefreshAsync(); Status = "Cykl zakończony — zobacz raport"; MessageBox.Show(Report, "Przygotowanie artykułów zakończone", MessageBoxButton.OK, MessageBoxImage.Information); });
     [RelayCommand] private void OpenArticles() => SelectedTab = 2;
     [RelayCommand] private void OpenSettings() => SelectedTab = 5;
     [RelayCommand] private Task LoadGallery() => RunAsync(async () => { if (SelectedGallery == null) throw new InvalidOperationException("Wybierz galerię."); var id = SelectedGallery.Id; var token = Token; await Task.Run(() => content.LoadGalleryDetailsAsync(id, token), token); await RefreshAsync(); Status = "Pobrano dane i pełnowymiarowe zdjęcia galerii"; });
@@ -130,7 +140,7 @@ public partial class MainViewModel : ObservableObject
         await RefreshAsync(); if (dry) Articles.Insert(0, a); SelectedArticle = dry ? a : Articles.FirstOrDefault(x => x.Id == a.Id); SelectedTab = 2;
         Status = dry ? "Test zakończony — galeria niewykorzystana, bez maila i zapisu artykułu" : "Generowanie zakończone";
     }
-    [RelayCommand] private Task GenerateSelected() => RunAsync(() => GenerateSelectedAsync(false, false));
+    [RelayCommand] private Task GenerateSelected() => RunAsync(async () => { await GenerateSelectedAsync(false, false); MessageBox.Show("Artykuł PL i EN jest przygotowany. Sprawdź treść w zakładce Artykuły.", "Artykuł gotowy", MessageBoxButton.OK, MessageBoxImage.Information); });
     [RelayCommand] private Task RegenerateGallery() => RunAsync(() => GenerateSelectedAsync(true, false));
     [RelayCommand] private Task TestPrompt() => RunAsync(async () => { if (SelectedTab == 3) { if (SelectedGallery?.Brand != PromptBrand) throw new InvalidOperationException("Wybierz galerię tej samej marki co prompt."); await prompts.SaveAsync(PromptBrand, PromptText, "Wersja testowana przez użytkownika", PromptVerified, Token); } await GenerateSelectedAsync(false, true); });
     [RelayCommand] private Task RegenerateLanguage() => RunAsync(() => GenerateSelectedAsync(true, false, Language));
@@ -138,14 +148,14 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand] private void CopyArticle() { Clipboard.SetText($"{ArticleTitle}\n\n{ArticleIntro}\n\n{ArticleBody}"); Status = "Tekst skopiowano"; }
     [RelayCommand] private Task ExportLanguage() => ExportAsync(Language);
     [RelayCommand] private Task ExportAll() => ExportAsync(null);
-    private Task ExportAsync(string? language) => RunAsync(async () => { if (SelectedArticle?.Id is not > 0) throw new InvalidOperationException("Wybierz zapisany artykuł."); Report = await content.ExportArticleAsync(SelectedArticle.Id, language, Token); Status = "Wyeksportowano dokumenty i zdjęcia z potwierdzonym prawem użycia"; });
+    private Task ExportAsync(string? language) => RunAsync(async () => { if (SelectedArticle?.Id is not > 0) throw new InvalidOperationException("Wybierz zapisany artykuł."); Report = await content.ExportArticleAsync(SelectedArticle.Id, language, Token); Status = Settings.ExportImages ? "Wyeksportowano dokumenty i zdjęcia dopuszczone do użycia" : "Wyeksportowano teksty bez zdjęć"; });
     [RelayCommand] private Task Approve() => RunAsync(async () => { if (SelectedArticle == null) return; await content.SetStatusAsync(SelectedArticle.Id, false, Token); await RefreshAsync(); Status = "Zatwierdzono artykuł"; });
     [RelayCommand] private Task MarkPublished() => RunAsync(async () => { if (SelectedArticle == null) return; if (MessageBox.Show("Oznaczyć artykuł jako opublikowany? Program nie wysyła go na stronę internetową.", "Status publikacji", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return; await content.SetStatusAsync(SelectedArticle.Id, true, Token); await RefreshAsync(); });
     private async Task LoadPromptAsync() { var p = await prompts.CurrentAsync(PromptBrand); PromptText = p.Content; PromptVerified = p.EditorialDocumentVerified; PromptHistory.Clear(); foreach (var x in await prompts.HistoryAsync(PromptBrand)) PromptHistory.Add(x); }
     [RelayCommand] private Task SavePrompt() => RunAsync(async () => { await prompts.SaveAsync(PromptBrand, PromptText, "Edycja użytkownika", PromptVerified, Token); await LoadPromptAsync(); Status = "Zapisano nową wersję promptu"; });
     [RelayCommand] private Task RestorePrompt() => RunAsync(async () => { await prompts.SaveAsync(PromptBrand, PromptService.Default(PromptBrand), PromptService.DefaultOrigin, true, Token); await LoadPromptAsync(); });
     [RelayCommand] private Task ImportPrompt() => RunAsync(async () => { var dialog = new Microsoft.Win32.OpenFileDialog { Title = "Wybierz Wpisy na bloga.docx", Filter = "Dokument Word (*.docx)|*.docx" }; if (dialog.ShowDialog() != true) return; await prompts.ImportAsync(dialog.FileName, Token); await LoadPromptAsync(); Report = (await prompts.CurrentAsync(PromptBrand, Token)).EditorialDocumentVerified ? "Rozpoznano dostarczony dokument. Trzy gotowe szablony mają zmienne i są zweryfikowane." : "Zachowano pełne sekcje nowego dokumentu. Zastąp jego przykłady zmiennymi i potwierdź każdy szablon."; });
-    [RelayCommand] private Task SaveSettings() => RunAsync(async () => { Settings.Validate(); secrets.Save(Settings.AiProvider, ApiKey); secrets.Save("smtp", SmtpPassword); ApiKey = ""; SmtpPassword = ""; Settings.SetupCompleted = true; await settingsService.SaveAsync(Settings, Token); await RefreshAsync(); Status = "Ustawienia zapisane; sekrety zabezpieczone DPAPI"; });
+    [RelayCommand] private Task SaveSettings() => RunAsync(async () => { Settings.MinWords = AppSettings.ReferenceMinWords; Settings.MaxWords = AppSettings.ReferenceMaxWords; Settings.Validate(); secrets.Save(Settings.AiProvider, ApiKey); secrets.Save("smtp", SmtpPassword); ApiKey = ""; SmtpPassword = ""; Settings.SetupCompleted = true; await settingsService.SaveAsync(Settings, Token); await RefreshAsync(); Status = "Ustawienia zapisane; sekrety zabezpieczone DPAPI"; });
     [RelayCommand] private Task LoadModels() => RunAsync(async () => { await settingsService.SaveAsync(Settings, Token); if (!string.IsNullOrWhiteSpace(ApiKey)) { secrets.Save(Settings.AiProvider, ApiKey); ApiKey = ""; } Models.Clear(); foreach (var m in await content.ModelsAsync(Token)) Models.Add(m); Status = "Pobrano modele. Wybierz model obsługujący obrazy i sprawdź jego cennik."; });
     [RelayCommand] private Task TestMail() => RunAsync(async () => { await settingsService.SaveAsync(Settings, Token); secrets.Save("smtp", SmtpPassword); SmtpPassword = ""; await mail.TestAsync(Token); Status = "Wysłano wiadomość testową"; });
     [RelayCommand] private Task MarkMailReceived() => RunAsync(async () => { if (SelectedNotification == null) throw new InvalidOperationException("Wybierz powiadomienie."); if (MessageBox.Show("Potwierdzasz, że sprawdziłeś skrzynkę i ta wiadomość rzeczywiście dotarła? Program oznaczy ją jako wysłaną i nie ponowi wysyłki.", "Potwierdzenie odbioru", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return; await mail.MarkReceivedAsync(SelectedNotification.Id, Token); await RefreshAsync(); });

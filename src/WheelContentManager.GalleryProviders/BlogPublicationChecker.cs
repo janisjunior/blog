@@ -9,6 +9,34 @@ public sealed class BlogPublicationChecker(SiteClient client) : IBlogPublication
 {
     private readonly Dictionary<WheelBrand, (DateTimeOffset Time, IReadOnlyList<PublishedPost> Posts)> cache = [];
     private readonly Dictionary<string, (DateTimeOffset Time, BlogCheck Result)> confirmed = [];
+    private readonly Dictionary<WheelBrand, (DateTimeOffset Time, IReadOnlyList<RecentBlogPost> Posts)> recent = [];
+    public async Task<IReadOnlyList<RecentBlogPost>> RecentAsync(WheelBrand brand, CancellationToken ct)
+    {
+        if (recent.TryGetValue(brand, out var snapshot) && DateTimeOffset.UtcNow - snapshot.Time < TimeSpan.FromMinutes(15)) return snapshot.Posts;
+        var host = brand switch { WheelBrand.JR => "jr-wheels.com", WheelBrand.Concaver => "concaverwheels.com", _ => "vesserforged.com" };
+        var page = new Uri($"https://{host}/blog"); var listing = Document(await client.GetAsync(page, false, ct));
+        var urls = BlogLinks(listing, page).Where(u => !IsList(u)).Take(10).ToArray();
+        if (urls.Length == 0) throw new InvalidOperationException("Nie rozpoznano ostatnich wpisów /blog. Sugestie są niedostępne.");
+        var posts = new List<RecentBlogPost>();
+        foreach (var uri in urls) posts.Add(ParseRecent(await client.GetAsync(uri, false, ct), uri));
+        var result = posts.OrderByDescending(p => p.Published ?? DateTimeOffset.MinValue).ToArray();
+        recent[brand] = (DateTimeOffset.UtcNow, result); return result;
+    }
+    public static RecentBlogPost ParseRecent(string html, Uri uri)
+    {
+        _ = ParsePost(html, uri); // require a recognised article, not a challenge or an error page
+        var doc = Document(html);
+        var title = HtmlEntity.DeEntitize(doc.DocumentNode.SelectSingleNode("//h1 | //div[@class='blog-details']/div[@class='title']")?.InnerText ?? "").Trim();
+        if (title.Length == 0) throw new InvalidOperationException("Brak tytułu ostatniego wpisu /blog.");
+        var time = doc.DocumentNode.SelectSingleNode("//time[@datetime]")?.GetAttributeValue("datetime", "");
+        var header = doc.DocumentNode.SelectSingleNode("//*[contains(@class,'blog-content-title') or contains(@class,'blog-header')]")?.InnerText ?? "";
+        var date = Regex.Match(header, @"\b\d{1,2}[./-]\d{1,2}[./-](?:\d{4}|\d{2})\b").Value;
+        DateTimeOffset? published = null;
+        if (DateTimeOffset.TryParse(time, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal, out var timestamp)) published = timestamp;
+        else if (DateTime.TryParseExact(date, new[] { "dd/MM/yy", "dd/MM/yyyy", "dd.MM.yyyy", "d.M.yyyy", "dd-MM-yyyy", "d/M/yy", "d/M/yyyy" }, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsed)) published = new DateTimeOffset(parsed, TimeSpan.Zero);
+        var models = Regex.Matches(title, @"(?i)\b(?:JR|SL|CVR|VSR|VF)[ -]?\d+\b").Select(m => TopicPlanner.Model(m.Value)).Distinct().ToArray();
+        return new(uri.AbsoluteUri, title, published, models);
+    }
     public async Task<BlogCheck> CheckAsync(Gallery gallery, CancellationToken ct)
     {
         var key = gallery.Brand + ":" + Normalization.Url(gallery.Url);

@@ -106,22 +106,27 @@ public partial class MainViewModel : ObservableObject
         catch (Exception e) { Status = "Operacja nie została ukończona"; Report = e is InvalidOperationException or PlatformNotSupportedException ? e.Message : $"Błąd {e.GetType().Name}. Sprawdź konfigurację i historię."; MessageBox.Show(Report, "Wheel Content Manager", MessageBoxButton.OK, MessageBoxImage.Warning); }
         finally { work.Dispose(); work = null; Busy = false; }
     }
+    private Task<T> Background<T>(Func<IProgress<string>, CancellationToken, Task<T>> action)
+    {
+        var progress = Progress; var token = Token;
+        return Task.Run(() => action(progress, token), token);
+    }
     private IProgress<string> Progress => new Progress<string>(x => Status = x);
     private CancellationToken Token => work?.Token ?? CancellationToken.None;
     [RelayCommand] private void Cancel() => work?.Cancel();
     [RelayCommand] private Task Refresh() => RunAsync(RefreshAsync);
-    [RelayCommand] private Task Sync() => RunAsync(async () => { Report = await content.SyncAsync(Progress, Token); await RefreshAsync(); Status = "Sprawdzanie galerii zakończono — zobacz raport"; });
-    [RelayCommand] private Task GenerateCycle() => RunAsync(async () => { Report = await content.RunCycleAsync(false, Progress, Token); await RefreshAsync(); Status = "Cykl zakończony — zobacz raport"; });
+    [RelayCommand] private Task Sync() => RunAsync(async () => { Report = await Background((progress, token) => content.SyncAsync(progress, token)); await RefreshAsync(); Status = "Sprawdzanie galerii zakończono — zobacz raport"; });
+    [RelayCommand] private Task GenerateCycle() => RunAsync(async () => { Report = await Background((progress, token) => content.RunCycleAsync(false, progress, token)); await RefreshAsync(); Status = "Cykl zakończony — zobacz raport"; });
     [RelayCommand] private void OpenArticles() => SelectedTab = 2;
     [RelayCommand] private void OpenSettings() => SelectedTab = 5;
-    [RelayCommand] private Task LoadGallery() => RunAsync(async () => { if (SelectedGallery == null) throw new InvalidOperationException("Wybierz galerię."); await content.LoadGalleryDetailsAsync(SelectedGallery.Id, Token); await RefreshAsync(); Status = "Pobrano dane i pełnowymiarowe zdjęcia galerii"; });
+    [RelayCommand] private Task LoadGallery() => RunAsync(async () => { if (SelectedGallery == null) throw new InvalidOperationException("Wybierz galerię."); var id = SelectedGallery.Id; var token = Token; await Task.Run(() => content.LoadGalleryDetailsAsync(id, token), token); await RefreshAsync(); Status = "Pobrano dane i pełnowymiarowe zdjęcia galerii"; });
     [RelayCommand] private Task SaveGallery() => RunAsync(async () => { if (SelectedGallery == null) throw new InvalidOperationException("Wybierz galerię."); await content.SaveGalleryAsync(SelectedGallery, GalleryConfirmed, Token); await RefreshAsync(); Status = "Korekta zapisana"; });
     private async Task GenerateSelectedAsync(bool regenerate, bool dry, string? language = null)
     {
         var id = language == null ? SelectedGallery?.Id : SelectedArticle?.GalleryId;
         if (id == null) throw new InvalidOperationException("Wybierz galerię lub artykuł.");
         if (regenerate && MessageBox.Show("Ponowne generowanie utworzy nową wersję i spowoduje koszt API. Kontynuować?", "Potwierdzenie ponownego generowania", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
-        var a = await content.GenerateAsync(id.Value, regenerate, dry, language, Progress, Token);
+        var a = await Background((progress, token) => content.GenerateAsync(id.Value, regenerate, dry, language, progress, token));
         await RefreshAsync(); if (dry) Articles.Insert(0, a); SelectedArticle = dry ? a : Articles.FirstOrDefault(x => x.Id == a.Id); SelectedTab = 2;
         Status = dry ? "Test zakończony — galeria niewykorzystana, bez maila i zapisu artykułu" : "Generowanie zakończone";
     }

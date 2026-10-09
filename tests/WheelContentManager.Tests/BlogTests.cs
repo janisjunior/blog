@@ -44,6 +44,12 @@ public class BlogTests
         var match = await checker.CheckAsync(g, default); Assert.True(match.Published); Assert.EndsWith("/blog/second", match.Url);
         Assert.Contains("/blog?page=1", handler.Requests); var count = handler.Requests.Count; await checker.CheckAsync(g, default); Assert.Equal(count, handler.Requests.Count);
     }
+    [Fact] public async Task ConfirmedPublicationDoesNotNeedUnrelatedUnavailableOlderPages()
+    {
+        using var handler = new BlogHandler { FirstMatches = true, FailSecond = true }; using var http = new HttpClient(handler); var checker = new BlogPublicationChecker(new SiteClient(http));
+        var g = Fixtures.Gallery(); g.Images = [new() { Url = "https://jr-wheels.com/matched.jpg" }];
+        Assert.True((await checker.CheckAsync(g, default)).Published); Assert.DoesNotContain("/blog?page=1", handler.Requests);
+    }
     [Fact] public async Task NetworkTimeoutIsNotMistakenForUserCancellation()
     {
         await using var env = await TestEnvironment.CreateAsync(); await env.PrepareAsync(); env.Blog.Timeout = true;
@@ -61,7 +67,7 @@ public class BlogTests
 
 internal sealed class BlogHandler : HttpMessageHandler
 {
-    public bool FailSecond { get; set; } public List<string> Requests { get; } = [];
+    public bool FirstMatches { get; set; } public bool FailSecond { get; set; } public List<string> Requests { get; } = [];
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
         var path = request.RequestUri!.PathAndQuery; Requests.Add(path);
@@ -70,7 +76,7 @@ internal sealed class BlogHandler : HttpMessageHandler
             "/robots.txt" => "User-agent: *\nAllow: /",
             "/blog" => "<a href='/blog/first'>first</a><a href='/blog?page=1'>older</a>",
             "/blog?page=1" => "<a href='/blog/second'>second</a><a href='/blog'>newer</a>",
-            "/blog/first" => "<div class='blog-content'>Unrelated entry</div>",
+            "/blog/first" => FirstMatches ? "<div class='blog-content'><img src='/matched.jpg'></div>" : "<div class='blog-content'>Unrelated entry</div>",
             "/blog/second" => FailSecond ? "changed HTML" : "<div class='blog-content'><img src='/matched.jpg'></div>",
             _ => throw new InvalidOperationException("Unexpected request: " + path)
         };

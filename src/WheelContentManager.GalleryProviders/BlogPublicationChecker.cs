@@ -16,7 +16,7 @@ public sealed class BlogPublicationChecker(SiteClient client) : IBlogPublication
         if (!cache.TryGetValue(gallery.Brand, out var snapshot) || DateTimeOffset.UtcNow - snapshot.Time > TimeSpan.FromMinutes(15))
         {
             var host = gallery.Brand switch { WheelBrand.JR => "jr-wheels.com", WheelBrand.Concaver => "concaverwheels.com", _ => "vesserforged.com" };
-            var queue = new Queue<Uri>(); queue.Enqueue(new($"https://{host}/blog")); var pages = new HashSet<string>(); var urls = new HashSet<string>();
+            var queue = new Queue<Uri>(); queue.Enqueue(new($"https://{host}/blog")); var pages = new HashSet<string>(); var urls = new HashSet<string>(); var posts = new List<PublishedPost>();
             while (queue.TryDequeue(out var page))
             {
                 if (!pages.Add(page.AbsoluteUri)) continue;
@@ -25,21 +25,19 @@ public sealed class BlogPublicationChecker(SiteClient client) : IBlogPublication
                 var links = BlogLinks(doc, page);
                 if (links.Count == 0) throw new InvalidOperationException("Nie rozpoznano listy /blog; generowanie zatrzymano.");
                 foreach (var uri in links)
-                    if (IsList(uri)) { if (!pages.Contains(uri.AbsoluteUri)) queue.Enqueue(uri); }
-                    else urls.Add(uri.AbsoluteUri);
-            }
-            if (urls.Count == 0) throw new InvalidOperationException("Nie znaleziono wpisów /blog; nie można potwierdzić braku duplikatu.");
-            var posts = new List<PublishedPost>();
-            foreach (var url in urls)
-            {
-                var post = ParsePost(await client.GetAsync(new(url), false, ct), new(url)); posts.Add(post);
-                var exact = Match(gallery, [post]);
-                if (exact.Published)
                 {
-                    var found = exact with { Message = exact.Message + " · potwierdzone dopasowanie" };
-                    confirmed[key] = (DateTimeOffset.UtcNow, found); return found;
+                    if (IsList(uri)) { if (!pages.Contains(uri.AbsoluteUri)) queue.Enqueue(uri); continue; }
+                    if (!urls.Add(uri.AbsoluteUri)) continue;
+                    var post = ParsePost(await client.GetAsync(uri, false, ct), uri); posts.Add(post);
+                    var exact = Match(gallery, [post]);
+                    if (exact.Published)
+                    {
+                        var found = exact with { Message = exact.Message + " · potwierdzone dopasowanie" };
+                        confirmed[key] = (DateTimeOffset.UtcNow, found); return found;
+                    }
                 }
             }
+            if (posts.Count == 0) throw new InvalidOperationException("Nie znaleziono wpisów /blog; nie można potwierdzić braku duplikatu.");
             snapshot = (DateTimeOffset.UtcNow, posts); cache[gallery.Brand] = snapshot;
         }
         var result = Match(gallery, snapshot.Posts);

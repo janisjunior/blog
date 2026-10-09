@@ -92,7 +92,7 @@ public class EditorialPlanningTests
         {
             var current = File.ReadAllText(Path.Combine(shipped, "JR.json"));
             var old = current.Replace("//meta[@name='description']/@content | //div[@class='product_variant_li_max_method']", "//meta[@name='description']/@content");
-            File.WriteAllText(Path.Combine(target, "JR.json"), old); File.WriteAllText(Path.Combine(target, "Concaver.json"), "custom profile");
+            File.WriteAllText(Path.Combine(target, "JR.json"), old.Replace("\r\n", "\n").Replace("\n", "\r\n")); File.WriteAllText(Path.Combine(target, "Concaver.json"), "custom profile");
             SourceProfileInstaller.Install(shipped, target);
             Assert.Equal(current, File.ReadAllText(Path.Combine(target, "JR.json"))); Assert.Equal("custom profile", File.ReadAllText(Path.Combine(target, "Concaver.json")));
             var profile = JsonSerializer.Deserialize<SourceProfile>(current)!; var doc = new HtmlAgilityPack.HtmlDocument(); doc.Load(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Live", "JR-product.html"));
@@ -115,6 +115,7 @@ public class EditorialPlanningTests
         await using var env = await TestEnvironment.CreateAsync(); var prompts = env.Services.GetRequiredService<PromptService>();
         var old = PromptService.Default(WheelBrand.JR).Replace("Stały zakres w aplikacji to 2200–2600 słów na język, według obszernego wpisu Nissan Z / SL03. Rozwijaj różne aspekty konfiguracji bez powtórzeń i bez dopisywania niepotwierdzonych faktów.", "Domyślne 1200–1800 słów nie skraca wymagań stylistycznych dokumentu.");
         Assert.True(PromptService.IsPreviousBuiltIn(WheelBrand.JR, old));
+        Assert.True(PromptService.IsPreviousBuiltIn(WheelBrand.JR, old.Replace("\r\n", "\n").Replace("\n", "\r\n")));
         await prompts.SaveAsync(WheelBrand.JR, old, "previous built-in", true);
         await prompts.SaveAsync(WheelBrand.Concaver, "Moja edycja {CAR_MODEL}", "user", true);
         await Bootstrap.InitializeAsync(env.Services);

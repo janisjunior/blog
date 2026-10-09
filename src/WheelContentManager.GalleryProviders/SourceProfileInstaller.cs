@@ -14,7 +14,7 @@ public static class SourceProfileInstaller
         foreach (var source in Directory.EnumerateFiles(shipped, "*.json"))
         {
             var name = Path.GetFileName(source); var target = Path.Combine(destination, name);
-            if (File.Exists(target) && (!Previous.TryGetValue(name, out var hash) || Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(target))) != hash)) continue;
+            if (File.Exists(target) && (!Previous.TryGetValue(name, out var hash) || Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(File.ReadAllText(target).Replace("\r\n", "\n")))) != hash)) continue;
             // Replace only a known untouched built-in profile; retain custom selectors.
             var temporary = target + "." + Guid.NewGuid().ToString("N") + ".tmp";
             try { File.Copy(source, temporary); File.Move(temporary, target, true); }

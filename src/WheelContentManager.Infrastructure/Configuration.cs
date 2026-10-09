@@ -71,7 +71,7 @@ public sealed class OperationLock : IDisposable
 }
 public sealed class PromptService(IDbContextFactory<ContentDb> factory)
 {
-    public static bool IsPreviousBuiltIn(WheelBrand brand, string content) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))) == (brand switch { WheelBrand.JR => "917D2092E21D4350A5DEF8F4EFE8828E2E4F7A472812ABFD363A35104D206484", WheelBrand.Concaver => "22A3A74075303CB5B36A8A6ECFDF5B5A5BFBBC3C4416F639A14BEC8891391A2E", WheelBrand.Vesser => "694F830F0B79736C182976A357E67B7C6E898D7EF4BDA9ABEA7D05BCAD70FDCD", _ => "" });
+    public static bool IsPreviousBuiltIn(WheelBrand brand, string content) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content.Replace("\r\n", "\n")))) == (brand switch { WheelBrand.JR => "917D2092E21D4350A5DEF8F4EFE8828E2E4F7A472812ABFD363A35104D206484", WheelBrand.Concaver => "22A3A74075303CB5B36A8A6ECFDF5B5A5BFBBC3C4416F639A14BEC8891391A2E", WheelBrand.Vesser => "694F830F0B79736C182976A357E67B7C6E898D7EF4BDA9ABEA7D05BCAD70FDCD", _ => "" });
     public const string EditorialDocumentSha256 = "7c5a625e388ad16842d244c07be70f43fd8c2a5b9fed339f1549acbdce305d89";
     public const string DefaultOrigin = "Wpisy na bloga.docx — zweryfikowane szablony JR/CVR/VSR";
     public const string LegacyDefaultOrigin = "Wymagania projektu — oczekuje na DOCX";

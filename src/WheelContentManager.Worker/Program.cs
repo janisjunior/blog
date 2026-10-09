@@ -30,7 +30,7 @@ try
         Console.WriteLine($"Baza: {paths.Database}\nGalerie: {(await service.GalleriesAsync()).Count}\nArtykuły: {(await service.ArticlesAsync()).Count}");
         foreach (var log in (await service.LogsAsync()).Take(10)) Console.WriteLine($"{log.Created:g} {log.Operation}: {log.Message}");
     }
-    else if (args.Length == 2 && args[0] == "--import-prompts") { await host.Services.GetRequiredService<PromptService>().ImportAsync(args[1], cancellation.Token); Console.WriteLine("Zaimportowano sekcje. W aplikacji zastąp przykłady zmiennymi i potwierdź każdy prompt."); }
+    else if (args.Length == 2 && args[0] == "--import-prompts") { await host.Services.GetRequiredService<PromptService>().ImportAsync(args[1], cancellation.Token); Console.WriteLine("Zaimportowano sekcje. Dostarczony z projektem dokument ma gotowe zweryfikowane szablony; inny dokument wymaga sprawdzenia w Prompty AI."); }
     else if (args.Length == 2 && args[0] == "--dry-run" && long.TryParse(args[1], out var id))
     {
         var article = await service.GenerateAsync(id, false, true, null, progress, cancellation.Token);

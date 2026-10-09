@@ -19,9 +19,9 @@ Kreator przeprowadza przez cztery kroki. Wszystkie ustawienia można później z
 1. **AI:** wybierz OpenAI lub Anthropic, wprowadź klucz API i pobierz modele. Wybierz model obsługujący obrazy i generowanie JSON. Wpisz aktualne ceny wejścia/wyjścia na milion tokenów w USD. API jest rozliczane osobno od abonamentu ChatGPT lub Claude.
 2. **E-mail:** podaj SMTP, port, STARTTLS lub SSL/TLS, login, hasło aplikacji oraz nadawcę i odbiorcę. Przycisk testowy wysyła rzeczywistą wiadomość do tego odbiorcy.
 3. **Pliki:** wybierz folder eksportu. Domyślnie dokumenty są w `%LOCALAPPDATA%\WheelContentManager\Artykuly`.
-4. **Prompty:** zaimportuj `Wpisy na bloga.docx`. Dokument musi zawierać osobne nagłówki JR, CVR i VSR. Import zachowuje całą treść sekcji. W zakładce **Prompty AI** zastąp konkretne przykłady zmiennymi, sprawdź wymagania każdej marki i zaznacz potwierdzenie zgodności. Dopiero potwierdzone szablony mogą generować artykuły.
+4. **Prompty:** program ma już trzy zweryfikowane szablony przygotowane z dostarczonego `Wpisy na bloga.docx`. Przykłady samochodów i felg zastąpiono zmiennymi, a dane techniczne wymagają potwierdzenia ze źródeł. Możesz je przeczytać i edytować w **Prompty AI**. Import tego samego dokumentu rozpoznaje jego zawartość i przywraca gotowe szablony. Inny dokument zachowuje pełne sekcje JR/CVR/VSR, ale wymaga sprawdzenia przykładów i potwierdzenia przed generowaniem.
 
-**Dokument redakcyjny nie został dostarczony z opisem projektu.** Wbudowany szablon zawiera wymagania z opisu, ale pozostaje niezatwierdzony. Program nie udaje, że zastępuje brakujący dokument.
+**Dokument redakcyjny jest dołączony:** [Wpisy na bloga.docx](docs/editorial/Wpisy%20na%20bloga.docx). Pełne teksty sekcji i opis adaptacji znajdują się w `docs/editorial`. Aktualizacja dodaje nową wersję tylko do nietkniętych starych szablonów roboczych; własne edycje użytkownika pozostają zachowane. „Przywróć domyślny” zawsze przywraca aktualny szablon z dokumentu, zachowując historię.
 
 Zmienne szablonu: `{CAR_MAKE}`, `{CAR_MODEL}`, `{CAR_VERSION}`, `{WHEEL_BRAND}`, `{WHEEL_MODEL}`, `{WHEEL_FINISH}`, `{FRONT_SIZE}`, `{REAR_SIZE}`, `{AVAILABLE_SIZES}`, `{PRODUCT_URL}`, `{GALLERY_URL}`, `{VERIFIED_CERTIFICATIONS}`, `{PHOTO_ANALYSIS}`, `{VERIFIED_PRODUCT_DETAILS}`. Ich wartości są przekazywane jako dane JSON; dane witryn nie stają się nadrzędnymi instrukcjami AI.
 

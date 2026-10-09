@@ -51,6 +51,7 @@ public sealed class IntegrationTests
     [Fact] public async Task UnverifiedPromptBlocksAiAndDoesNotMarkGalleryUsed()
     {
         await using var env = await TestEnvironment.CreateAsync(); await env.Content.SyncAsync(null, default); var g = (await env.Content.GalleriesAsync())[0];
+        await env.Services.GetRequiredService<PromptService>().SaveAsync(g.Brand, "Nowy dokument wymagający sprawdzenia {CAR_MODEL}", "niezweryfikowany import", false);
         await Assert.ThrowsAsync<InvalidOperationException>(() => env.Content.GenerateAsync(g.Id, false, false, null, null, default)); Assert.Empty(env.Ai.Calls); Assert.False((await env.Content.GalleriesAsync()).Single(x => x.Id == g.Id).Used);
     }
     [Fact] public async Task InvalidAiResponseKeepsFailureInsteadOfReadyAndRetriesAreBounded()

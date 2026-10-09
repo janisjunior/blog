@@ -36,7 +36,15 @@ public static class Bootstrap
         foreach (var brand in Enum.GetValues<WheelBrand>())
         {
             if (!await db.Brands.AnyAsync(x => x.Code == brand, ct)) db.Brands.Add(new() { Code = brand, Name = brand.Name() });
-            if (!await db.PromptTemplates.AnyAsync(x => x.Brand == brand, ct)) db.PromptTemplates.Add(new() { Brand = brand, Versions = [new() { Revision = 1, Content = PromptService.Default(brand), Origin = "Wymagania projektu — oczekuje na DOCX", EditorialDocumentVerified = false }] });
+            var template = await db.PromptTemplates.Include(x => x.Versions).SingleOrDefaultAsync(x => x.Brand == brand, ct);
+            if (template == null) db.PromptTemplates.Add(new() { Brand = brand, Versions = [new() { Revision = 1, Content = PromptService.Default(brand), Origin = PromptService.DefaultOrigin, EditorialDocumentVerified = true }] });
+            else
+            {
+                var current = template.Versions.MaxBy(x => x.Revision)!;
+                // Aktualizuj wyłącznie oryginalny, nietknięty szablon roboczy; zachowaj edycje użytkownika i historię.
+                if (current.Revision == 1 && current.Origin == PromptService.LegacyDefaultOrigin && !current.EditorialDocumentVerified && current.Content.StartsWith("# Szablon roboczy — wymaga dokumentu redakcyjnego"))
+                    template.Versions.Add(new() { Revision = 2, Content = PromptService.Default(brand), Origin = PromptService.DefaultOrigin, EditorialDocumentVerified = true });
+            }
         }
         await db.SaveChangesAsync(ct);
         try

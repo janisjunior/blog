@@ -1,6 +1,56 @@
-# Szablon roboczy — wymaga dokumentu redakcyjnego
+# Szablon redakcyjny VSR — Wpisy na bloga.docx
 
-Vesser: tytuł zawiera Vesser, model felg i samochód; luxury/performance, stance, wykonanie, technologia forged i personalizacja tylko w potwierdzonym zakresie.
+Źródło: SHA256 7c5a625e388ad16842d244c07be70f43fd8c2a5b9fed339f1549acbdce305d89
+
+Napisz artykuł na bloga strony vesserforged.com.Artykuł ma opisywać samochód wyposażony w felgi Vesser Forged Wheels. Do artykułu zostanie dodana galeria zdjęć, więc treść powinna budować wyobrażenie wizualne i podkreślać detale.
+Treść wstępna (intro) musi mieć maksymalnie 200 znaków.
+Przygotuj artykuł w dwóch językach:
+angielskim (EN)
+polskim (PL)
+Każda wersja językowa musi być napisana naturalnie — nie tłumacz jednego tekstu na drugi. Styl i konstrukcja zdań mają się różnić.
+Artykuł ma być bardzo długi, szczegółowy i rozbudowany. Ma opisywać:
+wygląd samochodu na felgach Vesser,
+dopasowanie felg do auta (fitment, stance),
+design felg (kształt, concave, detale),
+jakość wykonania i technologię forged,
+efekt wizualny i charakter auta (luxury / performance / show car).
+Koniecznie uwzględnij:
+dokładny rozmiar felg użytych w prezentowanym aucie,
+dostępne rozmiary danego modelu (na podstawie vesserforged.com),
+informacje o technologii forged (lekkość, wytrzymałość),
+dostępne wykończenia (np. brushed, polished, custom finishes),
+możliwość personalizacji (custom specs, indywidualne konfiguracje),
+homologacje / certyfikaty (np. TÜV – jeśli dotyczy),
+dopasowanie do marek samochodów (BMW, Audi, Mercedes, Porsche, Tesla itd.).
+Naturalnie wykorzystuj frazy, których mogą używać klienci, np.:forged wheels, custom wheels, luxury wheels, concave wheels, premium alloy wheels, performance wheels, perfect fitment, stanceale nie wspominaj nic o SEO ani o frazach.
+Artykuł ma zachęcać do zakupu poprzez opis jakości i efektu końcowego — bez bezpośrednich wezwań sprzedażowych.
+Nie używaj nagłówków ani list punktowanych — tekst ma być ciągły, spójny i narracyjny.
+Nie pisz bezpośrednio do czytelnika.
+Każda wersja językowa musi zawierać:
+krótki, chwytliwy tytuł, który zawiera:
+markę Vesser
+model felg
+model samochodu
+intro (max 200 znaków),
+długi tekst główny.
+Koniecznie posiłkuj się danymi podanymi poniżej (np. model auta, rozmiar felg, specyfikacja, wykończenie, konfiguracja) i uwzględnij je w artykule.
+Pisz jak osoba z branży automotive premium, która zna produkt i potrafi go sprzedać stylem, a nie nachalnością.
+
+DANE KONKRETNEJ GALERII:
+CAR DETAILS: {CAR_MAKE} {CAR_MODEL} {CAR_VERSION}
+WHEEL DETAILS: {WHEEL_BRAND} {WHEEL_MODEL}; {WHEEL_FINISH}
+Front size: {FRONT_SIZE}
+Rear size: {REAR_SIZE}
+PRODUCT CARD: {PRODUCT_URL}
+{VERIFIED_PRODUCT_DETAILS}
+
+ZASADY WYKONANIA W APLIKACJI:
+W tym pojedynczym zadaniu napisz wyłącznie język wskazany przez aplikację w instrukcji „Pole language”. Wymóg dwóch wersji z dokumentu realizują dwa osobne zadania PL i EN, a nie dwa artykuły w jednej odpowiedzi. ENG z dokumentu odpowiada kodowi EN.
+Tytuł i intro są osobnymi polami JSON; zakaz nagłówków i list dotyczy pola body. Nagłówki i listy powyżej opisują wymagania promptu, nie strukturę artykułu.
+Docelowy zakres słów pochodzi z ustawień zadania; zachowaj bardzo długą, szczegółową narrację. Domyślne 1200–1800 słów nie skraca wymagań stylistycznych dokumentu.
+Wysokie nasycenie słownictwem musi pozostać naturalne. Frazy lightweight, forged, deep concave, multi-spoke i twierdzenia o lekkości, wytrzymałości, kompatybilności, personalizacji lub homologacji stosuj wyłącznie zgodnie z potwierdzonymi faktami albo rzeczywistymi obserwacjami wyglądu. Nie wymyślaj masy ani właściwości fizycznych na podstawie zdjęcia.
+Sprzedażowy charakter PL i budowanie chęci posiadania wynikają z opisu jakości oraz efektu wizualnego. Bez bezpośrednich wezwań do zakupu, zwrotów do czytelnika i wzmiankowania klientów lub dealerów.
+Przykładowe nazwy modeli CVR1/CVR2 oraz średnice w nawiasach objaśniają sposób zapisu. Nie zastępują modelu i rozmiarów z bindings. Konfiguracje przykładowe z sekcji WHEEL DETAILS/CAR DETAILS zostały zastąpione zmiennymi.
 
 Przygotuj niezależny, długi artykuł automotive lifestyle. Nie tłumacz innej wersji językowej.
 PL: dynamiczny, obrazowy, emocjonalny. EN: premium, elegancki, lifestyle, lekko techniczny.

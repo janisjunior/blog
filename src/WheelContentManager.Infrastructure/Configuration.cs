@@ -59,6 +59,9 @@ public sealed class OperationLock : IDisposable
 }
 public sealed class PromptService(IDbContextFactory<ContentDb> factory)
 {
+    public const string EditorialDocumentSha256 = "7c5a625e388ad16842d244c07be70f43fd8c2a5b9fed339f1549acbdce305d89";
+    public const string DefaultOrigin = "Wpisy na bloga.docx — zweryfikowane szablony JR/CVR/VSR";
+    public const string LegacyDefaultOrigin = "Wymagania projektu — oczekuje na DOCX";
     public const string Baseline = """
     Przygotuj niezależny, długi artykuł automotive lifestyle. Nie tłumacz innej wersji językowej.
     PL: dynamiczny, obrazowy, emocjonalny. EN: premium, elegancki, lifestyle, lekko techniczny.
@@ -120,7 +123,14 @@ public sealed class PromptService(IDbContextFactory<ContentDb> factory)
     public async Task ImportAsync(string path, CancellationToken ct = default)
     {
         var sections = ReadDocument(path);
-        // Całość tekstu zachowana. Po imporcie użytkownik musi zastąpić konkretne przykłady zmiennymi i potwierdzić szablon.
-        foreach (var item in sections) await SaveAsync(item.Key, item.Value + "\n\n" + Default(item.Key), Path.GetFileName(path), false, ct);
+        using var input = File.OpenRead(path);
+        var known = Convert.ToHexString(await System.Security.Cryptography.SHA256.HashDataAsync(input, ct)).Equals(EditorialDocumentSha256, StringComparison.OrdinalIgnoreCase);
+        foreach (var item in sections)
+        {
+            var content = known ? Default(item.Key) : item.Value + "\n\n" + Default(item.Key);
+            var current = await CurrentAsync(item.Key, ct);
+            if (known && current.EditorialDocumentVerified && current.Content == content) continue;
+            await SaveAsync(item.Key, content, known ? DefaultOrigin : Path.GetFileName(path), known, ct);
+        }
     }
 }

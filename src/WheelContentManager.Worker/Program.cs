@@ -11,10 +11,16 @@ try
     await Bootstrap.InitializeAsync(host.Services, cancellation.Token);
     var service = host.Services.GetRequiredService<ContentService>();
     var progress = new Progress<string>(Console.WriteLine);
-    if (args.Contains("--prepare-stock"))
+    if (args.Contains("--operation-smoke"))
+    {
+        using var operation = OperationSession.Start(host.Services.GetRequiredService<AppPaths>(), "Test anulowania bez AI", cancellation.Token);
+        operation.Progress(progress).Report("Testowy proces oczekuje na anulowanie.");
+        await Task.Delay(Timeout.InfiniteTimeSpan, operation.Token);
+    }
+    else if (args.Contains("--prepare-stock"))
     {
         Console.WriteLine(await service.PrepareReadySetAsync(progress, cancellation.Token));
-        return (await service.ReadySetAsync()).Count == 3 || !(await host.Services.GetRequiredService<SettingsService>().LoadAsync()).BackgroundPreparationEnabled ? 0 : 1;
+        return OperationSession.Paused(host.Services.GetRequiredService<AppPaths>()) || (await service.ReadySetAsync()).Count == 3 || !(await host.Services.GetRequiredService<SettingsService>().LoadAsync()).BackgroundPreparationEnabled ? 0 : 1;
     }
     else if (args.Contains("--run-weekly"))
     {
@@ -22,7 +28,7 @@ try
         if (configuration.ScheduleEnabled && configuration.BackgroundPreparationEnabled)
         {
             Console.WriteLine(await service.PrepareReadySetAsync(progress, cancellation.Token));
-            return (await service.ReadySetAsync()).Count == 3 ? 0 : 1;
+            return OperationSession.Paused(host.Services.GetRequiredService<AppPaths>()) || (await service.ReadySetAsync()).Count == 3 ? 0 : 1;
         }
         Console.WriteLine(await service.RunCycleAsync(true, progress, cancellation.Token));
         var settings = await host.Services.GetRequiredService<SettingsService>().LoadAsync();
@@ -62,5 +68,6 @@ try
     else Console.WriteLine("WT - Blog Generator\n--prepare-stock: uzupełnianie 3 gotowych artykułów w tle\n--run-weekly: cykl według zapisanych ustawień\n--sync: pobieranie galerii\n--diagnose: lokalna diagnostyka\n--import-prompts <plik.docx>: import sekcji JR/CVR/VSR\n--dry-run <ID galerii>: pełny test z AI (koszt API), bez e-maila i oznaczania galerii.");
     return 0;
 }
+catch (OperationBusyException) { Console.WriteLine("Operacja już trwa; nie uruchomiono drugiego generatora."); return 0; }
 catch (OperationCanceledException) { Console.Error.WriteLine("Anulowano operację. Postęp pozostaje w bazie."); return 2; }
 catch (Exception e) { Console.Error.WriteLine(e is InvalidOperationException or PlatformNotSupportedException ? e.Message : $"Błąd: {e.GetType().Name}. Sprawdź ustawienia i dziennik aplikacji."); return 1; }

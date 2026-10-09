@@ -1,5 +1,5 @@
 #define AppName "WT - Blog Generator"
-#define AppVersion "0.3.0"
+#define AppVersion "0.4.0"
 [Setup]
 AppId={{F33F7BB7-0279-493A-950B-95471820CD71}
 AppName={#AppName}
@@ -22,10 +22,13 @@ Source: "..\artifacts\WheelContentManager\*"; DestDir: "{app}"; Flags: ignorever
 [InstallDelete]
 Type: files; Name: "{userprograms}\Wheel Content Manager.lnk"
 Type: files; Name: "{userdesktop}\Wheel Content Manager.lnk"
+[Registry]
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "WT-Blog-Generator"; ValueData: """{app}\WheelContentManager.Desktop.exe"" --background"; Flags: uninsdeletevalue; Tasks: autostart
 [Icons]
 Name: "{userprograms}\WT - Blog Generator"; Filename: "{app}\WheelContentManager.Desktop.exe"
 Name: "{userdesktop}\WT - Blog Generator"; Filename: "{app}\WheelContentManager.Desktop.exe"; Tasks: desktopicon
 [Tasks]
+Name: autostart; Description: "Uruchamiaj program w tle po zalogowaniu do Windows"
 Name: desktopicon; Description: "Utwórz skrót na pulpicie"; Flags: unchecked
 [Run]
 Filename: "{app}\WheelContentManager.Desktop.exe"; Description: "Uruchom WT - Blog Generator"; Flags: nowait postinstall skipifsilent

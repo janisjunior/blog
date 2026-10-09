@@ -41,6 +41,23 @@ jobs:
           } finally {
             & schtasks.exe /Delete /TN $taskName /F
           }
+      - name: Anulowanie osobnego procesu bez AI i e-maila
+        shell: pwsh
+        run: |
+          $controlRoot = "$env:RUNNER_TEMP/wt-cancel-smoke"
+          $process = Start-Process -FilePath './artifacts/WheelContentManager/Worker/WheelContentManager.Worker.exe' -ArgumentList @('--data-root', $controlRoot, '--operation-smoke') -PassThru
+          try {
+            $stateFile = "$controlRoot/operation-state.json"
+            for ($i = 0; $i -lt 100 -and !(Test-Path $stateFile) -and !$process.HasExited; $i++) { Start-Sleep -Milliseconds 200 }
+            if (!(Test-Path $stateFile)) { throw 'Worker nie udostępnił stanu operacji.' }
+            $state = Get-Content $stateFile -Raw | ConvertFrom-Json
+            [System.IO.File]::WriteAllText("$controlRoot/operation-cancel.txt", $state.Id)
+            if (!$process.WaitForExit(10000)) { throw 'Worker nie zareagował na anulowanie.' }
+            if ($process.ExitCode -ne 2) { throw 'Nieprawidłowy wynik anulowania.' }
+            if (Test-Path $stateFile) { throw 'Pozostała aktywna operacja po anulowaniu.' }
+          } finally {
+            if (!$process.HasExited) { Stop-Process -Id $process.Id -Force }
+          }
       - name: Instalator Inno Setup
         shell: pwsh
         run: |

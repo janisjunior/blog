@@ -65,7 +65,7 @@ public sealed class OperationLock : IDisposable
     public static OperationLock Acquire(string path)
     {
         try { return new(new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None)); }
-        catch (IOException) { throw new InvalidOperationException("Inny proces wykonuje operację. Poczekaj na zakończenie lub sprawdź historię zadań."); }
+        catch (IOException) { throw new OperationBusyException(); }
     }
     public void Dispose() => stream.Dispose();
 }

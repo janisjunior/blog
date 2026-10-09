@@ -6,6 +6,13 @@ namespace WheelContentManager.Infrastructure;
 
 public sealed class WindowsScheduler(AppPaths paths)
 {
+    public static void ApplyAutoStart(bool enabled, string desktop)
+    {
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Autostart wymaga Windows.");
+        using var run = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run");
+        if (enabled) run.SetValue("WT-Blog-Generator", $"\"{desktop}\" --background");
+        else run.DeleteValue("WT-Blog-Generator", throwOnMissingValue: false);
+    }
     public static string TaskXml(AppSettings s, string worker, string user)
     {
         var days = new[] { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
@@ -57,7 +64,7 @@ public sealed class WindowsScheduler(AppPaths paths)
         var xml = Path.Combine(paths.Root, "prepare-schedule.xml");
         await File.WriteAllTextAsync(xml, BackgroundTaskXml(s, worker, System.Security.Principal.WindowsIdentity.GetCurrent().Name), System.Text.Encoding.Unicode, ct);
         await RunAsync(["/Create", "/TN", name, "/XML", xml, "/F"], ct);
-        if (startNow) await RunAsync(["/Run", "/TN", name], ct);
+        if (startNow && !OperationSession.Paused(paths) && !OperationSession.IsRunning(paths)) await RunAsync(["/Run", "/TN", name], ct);
     }
     private static async Task<int> RunAsync(IEnumerable<string> args, CancellationToken ct, bool allowFailure = false)
     {

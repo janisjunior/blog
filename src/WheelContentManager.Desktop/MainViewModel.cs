@@ -13,7 +13,15 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly ContentService content; private readonly SettingsService settingsService; private readonly PromptService prompts; private readonly ISecretStore secrets; private readonly NotificationService mail; private readonly WindowsScheduler scheduler;
     private CancellationTokenSource? work;
-    private readonly System.Windows.Threading.DispatcherTimer preparationTimer = new() { Interval = TimeSpan.FromSeconds(15) };
+    private readonly AppPaths paths;
+    [ObservableProperty] private bool externalOperationRunning;
+    [ObservableProperty] private string backgroundProgress = "Brak aktywnej operacji w tle.";
+    public bool CanCancelOperation => Busy || ExternalOperationRunning;
+    partial void OnBusyChanged(bool value) => OnPropertyChanged(nameof(CanCancelOperation));
+    partial void OnExternalOperationRunningChanged(bool value) => OnPropertyChanged(nameof(CanCancelOperation));
+    public event Action? PreparedSetCompleted;
+    private bool preparedInitialized;
+    private readonly System.Windows.Threading.DispatcherTimer preparationTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     private bool pollingPreparation;
     public ObservableCollection<Article> PreparedArticles { get; } = [];
     [ObservableProperty] private Article? selectedPreparedArticle;
@@ -73,7 +81,7 @@ public partial class MainViewModel : ObservableObject
     public string SelectedArticleStatus => SelectedArticle?.Status.Label() ?? "Nie wybrano artykułu";
     public MainViewModel(IServiceProvider services)
     {
-        content = services.GetRequiredService<ContentService>(); settingsService = services.GetRequiredService<SettingsService>(); prompts = services.GetRequiredService<PromptService>(); secrets = services.GetRequiredService<ISecretStore>(); mail = services.GetRequiredService<NotificationService>(); scheduler = services.GetRequiredService<WindowsScheduler>(); DataFolder = services.GetRequiredService<AppPaths>().Root;
+        content = services.GetRequiredService<ContentService>(); settingsService = services.GetRequiredService<SettingsService>(); prompts = services.GetRequiredService<PromptService>(); secrets = services.GetRequiredService<ISecretStore>(); mail = services.GetRequiredService<NotificationService>(); scheduler = services.GetRequiredService<WindowsScheduler>(); paths = services.GetRequiredService<AppPaths>(); DataFolder = paths.Root;
         GalleryView = CollectionViewSource.GetDefaultView(Galleries); GalleryView.Filter = FilterGallery;
         ArticleView = CollectionViewSource.GetDefaultView(Articles); ArticleView.Filter = x => x is Article a && a.Display.Contains(ArticleSearch, StringComparison.CurrentCultureIgnoreCase);
     }
@@ -96,15 +104,24 @@ public partial class MainViewModel : ObservableObject
         Settings = await settingsService.LoadAsync(); await RefreshAsync(); await LoadPromptAsync(); await UpdatePreparedAsync();
         preparationTimer.Tick += async (_, _) =>
         {
+            UpdateOperation();
             if (pollingPreparation || Busy) return; pollingPreparation = true;
             try { await UpdatePreparedAsync(); } catch { /* retain the last successful ready set during a transient database error */ }
             finally { pollingPreparation = false; }
         };
-        preparationTimer.Start();
+        preparationTimer.Start(); preparedInitialized = true;
     }
     public void StopUpdates() => preparationTimer.Stop();
+    private void UpdateOperation()
+    {
+        var state = OperationSession.Read(paths);
+        ExternalOperationRunning = work == null && OperationSession.IsRunning(paths);
+        BackgroundProgress = state == null ? (OperationSession.Paused(paths) ? "Przygotowanie w tle wstrzymane — kliknij Wznów." : "Brak aktywnej operacji w tle.") : state.Progress;
+    }
     private async Task UpdatePreparedAsync()
     {
+        UpdateOperation();
+        var previousCount = PreparedArticles.Count;
         var ready = await content.ReadySetAsync(); var selected = SelectedPreparedArticle?.Id;
         PreparedArticles.Clear(); foreach (var article in ready) PreparedArticles.Add(article);
         SelectedPreparedArticle = PreparedArticles.FirstOrDefault(a => a.Id == selected) ?? PreparedArticles.FirstOrDefault();
@@ -112,16 +129,19 @@ public partial class MainViewModel : ObservableObject
             !Settings.BackgroundPreparationEnabled ? $"Gotowe {ready.Count}/3 — przygotowanie w tle jest wyłączone." :
             string.IsNullOrWhiteSpace(Settings.AiModel) || Settings.InputPricePerMillion <= 0 || Settings.OutputPricePerMillion <= 0 ? $"Gotowe {ready.Count}/3 — uzupełnij AI i ceny w Ustawieniach." :
             $"Gotowe {ready.Count}/3 — program uzupełni brakujące artykuły w tle. Wynik i błędy znajdziesz w Historii.";
-        if (ready.Count < 3 && Settings.BackgroundPreparationEnabled)
+        if (OperationSession.Paused(paths)) PreparationStatus = $"Gotowe {ready.Count}/3 — przygotowanie w tle wstrzymane. Kliknij Wznów.";
+        else if (ready.Count < 3 && Settings.BackgroundPreparationEnabled)
         {
             var last = (await content.RunsAsync()).FirstOrDefault(r => r.PeriodKey.StartsWith("stock-"));
             if (last?.Status is "Częściowe wykonanie" or "Przerwano") PreparationStatus = $"Gotowe {ready.Count}/3 — ostatnia próba: {last.Status.ToLowerInvariant()}. Szczegóły i przyczynę sprawdzisz w Historii.";
         }
+        if (preparedInitialized && previousCount < 3 && ready.Count == 3) PreparedSetCompleted?.Invoke();
     }
     public async Task ConfigureBackgroundAsync()
     {
         try
         {
+            WindowsScheduler.ApplyAutoStart(Settings.StartWithWindows, Environment.ProcessPath!);
             if (Settings.BackgroundPreparationEnabled && Settings.SetupCompleted && !string.IsNullOrWhiteSpace(Settings.AiModel) && string.IsNullOrWhiteSpace(secrets.Read(Settings.AiProvider)))
             { PreparationStatus = "Zapisz klucz API w Ustawieniach, aby przygotować artykuły w tle."; return; }
             await scheduler.ApplyBackgroundAsync(Settings, startNow: true);
@@ -134,7 +154,7 @@ public partial class MainViewModel : ObservableObject
         if (SelectedPreparedArticle == null) return; var id = SelectedPreparedArticle.Id;
         await RefreshAsync(); SelectedArticle = Articles.FirstOrDefault(a => a.Id == id); SelectedTab = 2;
     });
-    [RelayCommand] private Task StartPreparation() => RunAsync(ConfigureBackgroundAsync);
+    [RelayCommand] private Task StartPreparation() => RunAsync(async () => { OperationSession.Resume(paths); await ConfigureBackgroundAsync(); });
     private async Task RefreshAsync()
     {
         var selected = SelectedArticle?.Id; var gallery = SelectedGallery?.Id;
@@ -152,6 +172,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (Busy) return; Busy = true; work = new();
         try { await action(); }
+        catch (OperationBusyException) { UpdateOperation(); Status = "Trwa operacja w tle — postęp pokazano poniżej. Możesz ją anulować."; }
         catch (OperationCanceledException) { Status = "Anulowano — postęp zapisano"; }
         catch (Exception e) { Status = "Operacja nie została ukończona"; Report = e is InvalidOperationException or PlatformNotSupportedException ? e.Message : $"Błąd {e.GetType().Name}. Sprawdź konfigurację i historię."; MessageBox.Show(Report, "WT - Blog Generator", MessageBoxButton.OK, MessageBoxImage.Warning); }
         finally { work.Dispose(); work = null; Busy = false; }
@@ -163,7 +184,12 @@ public partial class MainViewModel : ObservableObject
     }
     private IProgress<string> Progress => new Progress<string>(x => Status = x);
     private CancellationToken Token => work?.Token ?? CancellationToken.None;
-    [RelayCommand] private void Cancel() => work?.Cancel();
+    [RelayCommand] private void Cancel()
+    {
+        work?.Cancel(); OperationSession.RequestCancellation(paths);
+        Status = "Anulowanie operacji… Przygotowanie w tle wstrzymano do kliknięcia Wznów.";
+        UpdateOperation();
+    }
     [RelayCommand] private Task Refresh() => RunAsync(RefreshAsync);
     [RelayCommand] private Task Sync() => RunAsync(async () => { Report = await Background((progress, token) => content.SyncAsync(progress, token)); await RefreshAsync(); try { await LoadSuggestionsAsync(); } catch (Exception e) when (e is not OperationCanceledException) { Suggestions.Clear(); Report += "\nSugestie niedostępne: " + e.Message; } Status = "Sprawdzanie galerii zakończono — zobacz raport"; });
     [RelayCommand] private Task SuggestTopics() => RunAsync(LoadSuggestionsAsync);

@@ -97,6 +97,7 @@ public class AppSettings
     public bool ScheduleEnabled { get; set; } public DayOfWeek ScheduleDay { get; set; } = DayOfWeek.Monday; public int ScheduleHour { get; set; } = 8; public int ScheduleMinute { get; set; }
     public int ArticlesPerBrand { get; set; } = 1; public string SelectionMode { get; set; } = "Najnowsze niewykorzystane";
     public long? ManualJrGalleryId { get; set; } public long? ManualConcaverGalleryId { get; set; } public long? ManualVesserGalleryId { get; set; }
+    public bool StartWithWindows { get; set; } = true;
     public bool BackgroundPreparationEnabled { get; set; } = true;
     public bool SetupCompleted { get; set; }
     public void Validate()

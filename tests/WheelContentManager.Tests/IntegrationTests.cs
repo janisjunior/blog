@@ -57,7 +57,7 @@ public sealed class IntegrationTests
     [Fact] public async Task InvalidAiResponseKeepsFailureInsteadOfReadyAndRetriesAreBounded()
     {
         await using var env = await TestEnvironment.CreateAsync(); await env.PrepareAsync(); env.Ai.BrokenJson = true; var g = (await env.Content.GalleriesAsync())[0];
-        await Assert.ThrowsAsync<InvalidOperationException>(() => env.Content.GenerateAsync(g.Id, false, false, null, null, default)); Assert.Equal(ArticleStatus.NeedsCorrection, (await env.Content.ArticlesAsync()).Single().Status); Assert.Equal(4, env.Ai.Calls.Count); // 1 analiza + 3 próby artykułu
+        await Assert.ThrowsAsync<InvalidOperationException>(() => env.Content.GenerateAsync(g.Id, false, false, null, null, default)); Assert.Equal(ArticleStatus.NeedsCorrection, (await env.Content.ArticlesAsync()).Single().Status); Assert.Equal(7, env.Ai.Calls.Count); // 1 analiza + po 3 ograniczone próby PL i EN
     }
     [Fact] public async Task TokenAndCostLimitPreventsApiCall()
     {
@@ -90,22 +90,31 @@ public sealed class IntegrationTests
 internal sealed class MemorySecrets : ISecretStore { public bool Missing { get; set; } public string? Read(string name) => Missing ? null : "test-only-key"; public void Save(string name, string value) { } }
 internal sealed class MockAi : IAiProvider
 {
+    public TaskCompletionSource BothLanguagesStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public TaskCompletionSource ReleaseWriting { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public bool HoldWriting { get; set; } public bool HoldEnglishOnly { get; set; }
+    private int writers;
     public string Name => "OpenAI"; public string NarrativeVariant { get; set; } = ""; public bool BrokenJson { get; set; } public List<(int Images, string Language)> Calls { get; } = [];
     public Task<IReadOnlyList<string>> ModelsAsync(string key, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>>(["mock-vision"]);
-    public Task<AiResult> CompleteAsync(string key, string model, string instruction, string data, IReadOnlyList<string> imagePaths, int maxTokens, CancellationToken ct)
+    public async Task<AiResult> CompleteAsync(string key, string model, string instruction, string data, IReadOnlyList<string> imagePaths, int maxTokens, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        var language = instruction.Contains("Pole language = EN") ? "EN" : "PL"; Calls.Add((imagePaths.Count, language));
-        if (instruction.StartsWith("Analizuj")) return Task.FromResult(new AiResult("{\"observations\":[\"syntetyczne zdjęcie do testu\"],\"warnings\":[]}", 50, 50));
-        if (instruction.StartsWith("Sprawdź")) return Task.FromResult(new AiResult("{\"errors\":[]}", 50, 50));
-        if (BrokenJson) return Task.FromResult(new AiResult("not JSON", 50, 50));
+        var language = instruction.Contains("Pole language = EN") ? "EN" : "PL"; lock (Calls) Calls.Add((imagePaths.Count, language));
+        if (instruction.StartsWith("Analizuj")) return new AiResult("{\"observations\":[\"syntetyczne zdjęcie do testu\"],\"warnings\":[]}", 50, 50);
+        if (instruction.StartsWith("Sprawdź")) return new AiResult("{\"errors\":[]}", 50, 50);
+        if (BrokenJson) return new AiResult("not JSON", 50, 50);
+        if (HoldWriting)
+        {
+            if (Interlocked.Increment(ref writers) == 2) BothLanguagesStarted.TrySetResult();
+            if (!HoldEnglishOnly || language == "EN") await ReleaseWriting.Task.WaitAsync(ct);
+        }
         using var json = JsonDocument.Parse(data.Split("\nPoprzednia próba")[0]); var brand = json.RootElement.GetProperty("wheelBrand").GetString();
         var g = Fixtures.Gallery(brand == "JR Wheels" ? WheelBrand.JR : brand == "Concaver Wheels" ? WheelBrand.Concaver : WheelBrand.Vesser);
         g.Url = json.RootElement.GetProperty("galleryUrl").GetString()!;
         g.Vehicle.Model = json.RootElement.GetProperty("bindings").GetProperty("CAR_MODEL").GetString();
         var article = Fixtures.ArticleData(g, language);
         if (NarrativeVariant.Length > 0) article = article with { Body = article.Body.Replace("jasny", "jasny" + NarrativeVariant).Replace("ciemny", "ciemny" + NarrativeVariant).Replace("srebrny", "srebrny" + NarrativeVariant) };
-        return Task.FromResult(new AiResult(JsonSerializer.Serialize(article, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }), 50, 50));
+        return new AiResult(JsonSerializer.Serialize(article, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }), 50, 50);
     }
 }
 internal sealed class FixtureProvider(WheelBrand brand, string imagePath) : IGalleryProvider

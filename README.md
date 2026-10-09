@@ -12,6 +12,14 @@ Aplikacja desktopowa dla Windows 11, przygotowująca artykuły o konfiguracjach 
 
 Paczka jest niepodpisana cyfrowo. Windows może wyświetlić informację o nieznanym wydawcy. Nazwa repozytorium pozostaje `blog`; nazwa programu to WT - Blog Generator.
 
+## Autostart, anulowanie i szybsze pisanie — 0.4.0
+
+Program uruchamia się po zalogowaniu do Windows jako ikona w zasobniku przy zegarze. Dwuklik otwiera panel; zamknięcie okna pozostawia aplikację w tle. Po ukończeniu zestawu trzech artykułów aplikacja wyświetla powiadomienie systemowe (oprócz skonfigurowanej wysyłki SMTP). Autostart panelu można wyłączyć w Ustawieniach. Działa na tym samym zalogowanym koncie, z zachowaniem DPAPI i danych.
+
+Dolny pasek pokazuje aktualny etap także z osobnego Workera. **Anuluj** przerywa bieżące żądania i wstrzymuje automatyczne przygotowanie, również po restarcie, do wybrania **Wznów przygotowanie w tle** na Pulpicie. Gotowe teksty i ukończone wersje językowe pozostają w bazie. Menu ikony pozwala anulować albo zakończyć panel i wstrzymać przygotowanie. Konflikt z działającym Workerem pokazuje status i możliwość anulowania, zamiast okna błędu.
+
+PL i EN powstają równolegle jako niezależne artykuły, z osobnymi kontrolami. Wspólny budżet obejmuje jednoczesne żądania i zachowuje rezerwy kosztu przy anulowaniu po wysłaniu zapytania. Wznawianie pomija ukończone wersje i ponownie używa prawidłowej analizy zdjęć tej galerii. Analiza i kontrola mają mniejsze limity odpowiedzi; długość artykułów pozostaje 2200–2600 słów. Automatyczny cykl pobiera szczegóły wybranego tematu, bez dodatkowego wczytywania trzech innych galerii każdej marki. Sprawdzanie wszystkich podstron /blog i aktualnej karty modelu pozostaje obowiązkowe; pierwszy skan archiwum oraz czas odpowiedzi dostawcy AI mogą nadal trwać.
+
 ## Gotowy zestaw przed otwarciem — wersja 0.3.0
 
 Po skonfigurowaniu AI i zapisaniu ustawień program automatycznie rejestruje zadanie przygotowania w tle i uruchamia pierwszą próbę. Okno można zamknąć. Kolejne sprawdzenia następują po zalogowaniu do Windows oraz co 2 godziny, od 06:00. Komputer musi być włączony, konto zalogowane, a dostęp do internetu i AI skonfigurowany. Na wyłączonym komputerze artykuły nie powstaną; pierwszy zestaw trzeba przygotować przed możliwością jego odczytu.
@@ -24,7 +32,7 @@ Synchronizacja korzysta z jednego odczytu istniejących galerii na markę zamias
 
 Nazwa programu i jasnego panelu to **WT - Blog Generator**. Identyfikator instalatora, lokalizacja danych oraz techniczne nazwy plików EXE pozostają zgodne z wcześniejszą instalacją, aby zachować bazę i klucze.
 
-## Aktualizacja do wersji 0.3.0
+## Aktualizacja do wersji 0.4.0
 
 1. Poczekaj na zakończenie generowania i zamknij program. Worker z Harmonogramu również musi zakończyć pracę.
 2. Pobierz najnowszą zieloną paczkę **WT-Blog-Generator-Windows** z Actions, rozpakuj i uruchom **WT-Blog-Generator-Setup.exe**.

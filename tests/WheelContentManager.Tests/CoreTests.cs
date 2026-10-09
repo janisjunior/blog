@@ -59,7 +59,7 @@ public class CoreTests
     }
     [Fact] public void FileLockRejectsConcurrentExecutionAndReleasesAfterDispose()
     {
-        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".lock"); using (OperationLock.Acquire(path)) Assert.Throws<InvalidOperationException>(() => OperationLock.Acquire(path)); using (OperationLock.Acquire(path)) { } File.Delete(path);
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".lock"); using (OperationLock.Acquire(path)) Assert.Throws<OperationBusyException>(() => OperationLock.Acquire(path)); using (OperationLock.Acquire(path)) { } File.Delete(path);
     }
     [Fact] public void RobotsRulesAreRespected() { Assert.False(SiteClient.RobotsAllowed("User-agent: *\nDisallow: /private\nAllow: /private/public", "/private/a")); Assert.True(SiteClient.RobotsAllowed("User-agent: *\nDisallow: /private\nAllow: /private/public", "/private/public/a")); }
     [Fact] public void ParserEngineUsesOnlyExplicitFixtureProfile()

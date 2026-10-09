@@ -1,0 +1,31 @@
+{
+  "Verified": true,
+  "Evidence": "Rzeczywisty HTML pobrany 2026-10-09; fixtures oraz docs/ZRODLA.md.",
+  "GalleryLinksXPath": "//section[@class='galleries']//div[@class='gallery-grid']/a",
+  "ListCardsXPath": "//section[@class='galleries']//div[@class='gallery-grid']/a",
+  "ListLinkXPath": ".",
+  "MakesXPath": "//select[@name='make']/option",
+  "NextPageXPath": "//nav[@class='pagination']//a[@class='next']",
+  "FieldsXPath": {
+    "CarModel": "//section[@class='gallery']//h3[@class='title']",
+    "WheelModel": "//section[@class='gallery']//div[@class='description'][1]/strong",
+    "Finish": "//section[@class='gallery']//div[@class='description'][1]/text()[normalize-space()]",
+    "FrontSize": "//section[@class='gallery']//span[strong[contains(.,'FRONT:')]]/text()[normalize-space()]",
+    "RearSize": "//section[@class='gallery']//span[strong[contains(.,'REAR:')]]/text()[normalize-space()]"
+  },
+  "ImagesXPath": "//section[@class='gallery']/div[@class='grid']/a[@data-fslightbox='gallery']",
+  "ProductLinkXPath": "//section[@class='gallery']//div[@class='gallery-title']/a",
+  "VehicleGalleryMarkerXPath": "//section[@class='gallery']//div[@class='name-and-wheel']//strong",
+  "ListFieldsXPath": {
+    "CarDisplay": ".//div[@class='title']",
+    "WheelModel": ".//div[@class='wheel']",
+    "Finish": ".//div[@class='finishing']",
+    "Thumbnail": ".//img[1]/@src"
+  },
+  "ProductFieldsXPath": {
+    "ProductDetails": "//div[@class='wheel-details']/div[@class='description']",
+    "AvailableSizes": "//div[@class='size-buttons ready']"
+  },
+  "MaxPages": 30,
+  "ProductNameXPath": "//div[@class='wheel-details']/div[@class='title']"
+}

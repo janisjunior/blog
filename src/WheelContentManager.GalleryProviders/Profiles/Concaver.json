@@ -1,0 +1,32 @@
+{
+  "Verified": true,
+  "Evidence": "Rzeczywisty HTML pobrany 2026-10-09; fixtures oraz docs/ZRODLA.md.",
+  "GalleryLinksXPath": "//div[contains(@class,'subsite_gallery_box')]/a",
+  "ListCardsXPath": "//div[contains(concat(' ',normalize-space(@class),' '),' subsite_gallery_box ')]",
+  "ListLinkXPath": "./a",
+  "NextPageXPath": null,
+  "FieldsXPath": {
+    "CarMake": "//div[@class='gallery_info']/ul/li[span[contains(normalize-space(.),'Car make:')]]/text()[normalize-space()]",
+    "CarModel": "//div[@class='gallery_info']/ul/li[span[contains(normalize-space(.),'Car model:')]]/text()[normalize-space()]",
+    "CarDisplay": "//h1",
+    "WheelModel": "//div[@class='gallery_info']/ul/li[span[contains(normalize-space(.),'Model:')]]/text()[normalize-space()]",
+    "FrontSize": "//div[@class='gallery_info']/ul/li[span[contains(normalize-space(.),'Front size:')]]/text()[normalize-space()]",
+    "RearSize": "//div[@class='gallery_info']/ul/li[span[contains(normalize-space(.),'Rear size:')]]/text()[normalize-space()]",
+    "Finish": "//div[@class='gallery_info']/ul/li[span[contains(normalize-space(.),'Finish:')]]/text()[normalize-space()]"
+  },
+  "ImagesXPath": "//div[@class='new-gallery-grid']/a[@data-fslightbox='gallery']",
+  "ProductLinkXPath": "//div[@class='subsite_product_interested_box']/a[1]",
+  "ListFieldsXPath": {
+    "CarDisplay": ".//h5",
+    "WheelModel": ".//div[@class='subsite_gallery_box_text']",
+    "Finish": ".//div[@class='subsite_gallery_box_finish']/span",
+    "Thumbnail": ".//img/@src"
+  },
+  "MaxPages": 20,
+  "MakesXPath": "//select[@name='brand']/option",
+  "ProductFieldsXPath": {
+    "ProductDetails": "//meta[@name='description']/@content",
+    "AvailableSizes": "//li[contains(@class,'click_size')]/@data-size"
+  },
+  "ProductNameXPath": "//title"
+}

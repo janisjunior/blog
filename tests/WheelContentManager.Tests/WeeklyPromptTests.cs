@@ -89,6 +89,18 @@ public class WeeklyPromptTests
         await service.TickAsync(Monday.AddHours(6));
         Assert.Equal(2, (await service.BatchesAsync()).Single().Items.Count); Assert.Equal(0, mailer.Calls);
     }
+    [Fact] public async Task FailedBrandDoesNotBlockOtherTwoPackagesOrSendPartialMail()
+    {
+        await using var env = await TestEnvironment.CreateAsync(); var mailer = new Mailer(); var service = await Service(env, mailer);
+        env.Blog.RecentFailure = WheelBrand.JR;
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => service.TickAsync(Monday));
+        Assert.Contains("2/3", error.Message);
+        var batch = Assert.Single(await service.BatchesAsync());
+        Assert.Equal(new[] { WheelBrand.Concaver, WheelBrand.Vesser }, batch.Items.Where(i => i.Package != null).Select(i => i.Brand));
+        Assert.Equal(0, mailer.Calls);
+        env.Blog.RecentFailure = null; await service.TickAsync(Monday.AddMinutes(15));
+        Assert.Equal(3, (await service.BatchesAsync()).Single().Items.Count(i => i.Package != null)); Assert.Empty(env.Ai.Calls);
+    }
     [Fact] public void RankingSkipsUsedGalleriesAndLatestPublishedAndPreparedModels()
     {
         Gallery G(long id, string model, bool used = false) { var g = Fixtures.Gallery(); g.Id = id; g.Specification.Model = model; g.PromptUsed = used; return g; }

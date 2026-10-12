@@ -5,7 +5,7 @@
 - Zainstalowano oficjalny SDK .NET 10.0.401; SHA512 archiwum zgadza się z metadanymi wydania Microsoft.
 - `scripts/setup-cloud.sh`: odtwarzanie zależności z lockfile, kompilacja wszystkich siedmiu projektów (również WPF przez EnableWindowsTargeting), testy.
 - Kompilacja: 0 błędów, 0 ostrzeżeń.
-- 160 testów: 160 zaliczone, 0 niezaliczonych, 0 pominiętych. Testy sprawdzają migracje SQLite, deduplikację, korekty, osie i rozmiary, pełne sekcje DOCX, prompty, JSON, intro, jakość, podobieństwo, kontrakty HTTP OpenAI/Anthropic, generowanie PL/EN z mock AI i obrazami, ograniczenia prób/kosztów, brak zużycia galerii w dry-run, historię regenerowania, dokumenty i zdjęcia w DOCX/HTML/TXT/ZIP, XML harmonogramu, blokadę procesów, warunki pełnego powiadomienia oraz jego niepewny stan i ręczne potwierdzenie.
+- 163 testy: 163 zaliczone, 0 niezaliczonych, 0 pominiętych. Testy sprawdzają migracje SQLite, deduplikację, korekty, osie i rozmiary, pełne sekcje DOCX, prompty, JSON, intro, jakość, podobieństwo, kontrakty HTTP OpenAI/Anthropic, generowanie PL/EN z mock AI i obrazami, ograniczenia prób/kosztów, brak zużycia galerii w dry-run, historię regenerowania, dokumenty i zdjęcia w DOCX/HTML/TXT/ZIP, XML harmonogramu, blokadę procesów, warunki pełnego powiadomienia oraz jego niepewny stan i ręczne potwierdzenie.
 - Testy dokumentu: oryginalny DOCX, kompletność wszystkich linii wymagań, dynamiczne dane galerii, brak wycieku konfiguracji przykładowych, gotowe szablony przy instalacji, idempotentny import, rozpoznawanie treści po SHA256 oraz aktualizacja bez nadpisania edycji użytkownika.
 - Testy /blog: wszystkie trzy rzeczywiste struktury HTML, paginacja, wspólne zdjęcia, możliwy duplikat, pomijanie nawigacji i polecanych wpisów, błąd sieci i brak kosztu AI przy blokadzie. Test pełnego klienta HTTP wykrywa wpis z drugiej strony i sprawdza, że niepełny skan nie trafia do cache.
 - Testy na lokalnych fragmentach rzeczywistego HTML wszystkich trzech marek. Oddzielna syntetyczna próbka nie jest przedstawiana jako źródło produkcyjne.
@@ -105,3 +105,10 @@ GUI ma tylko wybór marki, wyszukiwanie galerii, podgląd i linki oraz eksport p
 - Plik JSON wypełnia SMTP, TLS, login, adresy i przełączniki poczty, tła oraz autostartu. Wczytanie nie zapisuje ustawień ani nie wysyła maila; użytkownik wpisuje lokalne hasło i zapisuje konfigurację.
 - Testy potwierdzają import kompletnego profilu, odrzucenie hasła / dodatkowych pól, nieszyfrowanego połączenia i adresu z protokołem zamiast nazwy hosta.
 - Prywatny profil użytkownika pozostaje poza repozytorium i artefaktem instalatora. Nie sprawdzono rzeczywistego połączenia SMTP użytkownika.
+
+## Diagnoza błędów bloga i SMTP — 0.7.2
+
+- 12 października 2026 rzeczywista pełna kontrola archiwów Concaver i Vesser zakończyła się sukcesem. JR zatrzymało się na https://jr-wheels.com/blog/nissan-z-%C3%97-sl03: serwer oddał HTML listy bloga zamiast treści wpisu. Próba z surowym symbolem × dała ten sam wynik. Nie uznano takiej odpowiedzi za sprawdzony artykuł ani nie pominięto kontroli duplikatów. Użytkownik zmienił adres na https://jr-wheels.com/blog/nissan-z-on-sl03; potwierdzono pełny artykuł z tytułem i blog-content oraz poprawiony odnośnik na liście.
+- Test pokazuje dokładny URL błędnej odpowiedzi. Inny test potwierdza niezależne przygotowanie dwóch pozostałych marek, brak maila częściowego oraz dokończenie zestawu po usunięciu błędu źródła. Wcześniej zweryfikowana paczka marki z nieudanym odświeżeniem nie jest przedstawiana jako gotowa.
+- Rzeczywisty test transportu na lokalnym SMTP z STARTTLS i niezaufanym certyfikatem potwierdza odrzucenie TLS przed AUTH, widoczność nazwy certyfikatu i brak hasła w komunikacie. Nie wyłączono weryfikacji TLS.
+- Połączenia z rzeczywistą pocztą użytkownika nie zweryfikowano: DNS tego hosta jest niedostępny z chmury. Nowy komunikat z komputera użytkownika jest potrzebny do rozróżnienia nazwy, zaufania, ważności i protokołu TLS. Nie wysłano rzeczywistego maila.

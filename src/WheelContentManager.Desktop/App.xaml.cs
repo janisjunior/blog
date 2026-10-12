@@ -77,7 +77,11 @@ public partial class App : Application
         }
         catch (OperationBusyException) { viewModel.WeeklyStatus = "Trwa inna operacja; przygotowanie zostanie wznowione automatycznie."; }
         catch (OperationCanceledException) { viewModel.WeeklyStatus = "Przygotowanie wstrzymane — kliknij Wznów."; }
-        catch (Exception e) { retryAfter = DateTimeOffset.UtcNow.AddMinutes(15); viewModel.WeeklyStatus = (e is InvalidOperationException ? e.Message : "Błąd przygotowania: " + e.GetType().Name) + " Ponowienie za 15 minut lub po kliknięciu Wznów."; }
+        catch (Exception e)
+        {
+            retryAfter = DateTimeOffset.UtcNow.AddMinutes(15); viewModel.WeeklyStatus = (e is InvalidOperationException ? e.Message : "Błąd przygotowania: " + e.GetType().Name) + " Ponowienie za 15 minut lub po kliknięciu Wznów.";
+            try { await viewModel.LoadWeeklyAsync(); } catch { /* keep the original, useful source error */ }
+        }
         finally { background.Dispose(); background = null; polling = false; viewModel.BackgroundBusy = false; }
     }
     protected override void OnExit(ExitEventArgs e) { exiting = true; weeklyTimer?.Stop(); activation?.Stop(); background?.Cancel(); tray?.Dispose(); viewModel?.StopUpdates(); showWindow?.Dispose(); instance?.Dispose(); host?.Dispose(); base.OnExit(e); }

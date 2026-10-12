@@ -56,6 +56,7 @@ public sealed class MailSettingsWindow : Window
         }; buttons.Children.Add(import);
         var save = new Button { Content = "Zapisz ustawienia" }; save.Click += async (_, _) => await ExecuteAsync(SaveAsync); buttons.Children.Add(save);
         var test = new Button { Content = "Wyślij wiadomość testową" }; test.Click += async (_, _) => await ExecuteAsync(async () => { await SaveAsync(); await services.GetRequiredService<NotificationService>().TestAsync(); status.Text = "Wiadomość testowa wysłana. Sprawdź skrzynkę i spam."; }); buttons.Children.Add(test);
+        var copy = new Button { Content = "Skopiuj komunikat" }; copy.Click += (_, _) => Clipboard.SetText(status.Text); buttons.Children.Add(copy);
         panel.Children.Add(status); panel.Children.Add(history);
         Loaded += async (_, _) => await ExecuteAsync(LoadAsync);
     }

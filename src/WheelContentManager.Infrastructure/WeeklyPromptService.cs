@@ -70,8 +70,11 @@ public sealed class WeeklyPromptService(IDbContextFactory<ContentDb> factory, Co
         }
         if (batch.MailState is "Sending" or "Unknown") return "Niepewny wynik maila — sprawdź skrzynkę i potwierdź odbiór lub ponów wysyłkę w ustawieniach poczty.";
         var recheck = now >= batch.Due.AddMinutes(-15) && (batch.DeliveryCheckedAt == null || batch.DeliveryCheckedAt < batch.Due.AddMinutes(-15) || now - batch.DeliveryCheckedAt > TimeSpan.FromDays(1));
+        var preparationErrors = new List<string>();
         foreach (var brand in Enum.GetValues<WheelBrand>())
         {
+            try
+            {
             ct.ThrowIfCancellationRequested(); if (OperationSession.Paused(paths)) throw new OperationCanceledException(ct);
             var item = batch.Items.SingleOrDefault(i => i.Brand == brand);
             if (item?.Package != null && File.Exists(item.Package.Document) && File.Exists(item.Package.Instructions) && !recheck) continue;
@@ -97,6 +100,21 @@ public sealed class WeeklyPromptService(IDbContextFactory<ContentDb> factory, Co
                 throw new InvalidOperationException("Pełna galeria wskazuje inny model niż lista — temat pominięto, aby nie powtórzyć modelu.");
             }
             batch.Items[batch.Items.IndexOf(item)] = item with { Package = package }; await SaveAsync(batch, ct);
+            }
+            catch (OperationBusyException) { throw; }
+            catch (Exception e) when (e is InvalidOperationException or HttpRequestException)
+            {
+                var failed = batch.Items.SingleOrDefault(i => i.Brand == brand);
+                if (failed != null) batch.Items[batch.Items.IndexOf(failed)] = failed with { Package = null };
+                preparationErrors.Add(brand.Name() + ": " + e.Message);
+                batch.Status = "Problem przygotowania " + brand.Name() + ": " + e.Message;
+                await SaveAsync(batch, ct);
+            }
+        }
+        if (preparationErrors.Count > 0)
+        {
+            batch.Status = $"Gotowe {batch.Items.Count(i => i.Package != null)}/3 paczki. Mail czeka na pełny zestaw.\n" + string.Join("\n", preparationErrors);
+            await SaveAsync(batch, ct); throw new InvalidOperationException(batch.Status);
         }
         batch.PreparedAt ??= now; if (recheck) batch.DeliveryCheckedAt = now;
         batch.LastSiteCheckAt ??= now;

@@ -1,4 +1,4 @@
-# WT - Blog Generator 0.7.1
+# WT - Blog Generator 0.7.2
 
 Program do wybierania galerii JR Wheels, Concaver Wheels i Vesser Forged oraz przygotowywania kompletnych plików do własnego czatu ChatGPT. Jasny panel: wybór marki, lista galerii, podgląd zdjęcia i zapis pliku. Bez importowania odpowiedzi, zatwierdzania artykułów i płatnego API. Może przygotować cotygodniowe paczki w tle i wysłać je przez Twoją pocztę SMTP.
 
@@ -52,3 +52,9 @@ Dane starszej wersji w `%LOCALAPPDATA%\WheelContentManager` pozostają zachowane
 Aplikacja jest natywnym WPF na Windows. SDK: .NET 10.0.401. W chmurze użyj istniejącego `/workspace/blog`, bez tworzenia dodatkowego worktree. `bash scripts/setup-cloud.sh` weryfikuje SDK, przywraca zależności z lockfile, buduje rozwiązanie i uruchamia testy. Linux nie uruchamia WPF; workflow Windows buduje instalator i sprawdza Worker.
 
 Stare modele, migracje i testy pozostają w bibliotekach dla zgodności danych. Szczegóły źródeł i weryfikacji: [ZRODLA.md](docs/ZRODLA.md), [WERYFIKACJA.md](docs/WERYFIKACJA.md). Interaktywne działanie Windows i wrzucenie dokumentu do osobistego ChatGPT wymagają ręcznej weryfikacji.
+
+## Błędy bloga i TLS
+
+Jeżeli link wpisu zwraca listę bloga zamiast artykułu, program pokazuje dokładny adres i nie uznaje archiwum za kompletne. Problem jednej marki nie zatrzymuje przygotowania pozostałych; mail z trzema paczkami czeka na pełne sprawdzenie. Uszkodzony link trzeba poprawić na stronie źródłowej.
+
+Przy błędzie TLS poczty program pokazuje wynik weryfikacji, nazwę DNS z certyfikatu, wystawcę, okres ważności i problemy łańcucha. Przycisk **Skopiuj komunikat** kopiuje te publiczne dane, bez hasła. Weryfikacja certyfikatu pozostaje wymagana. Błąd certyfikatu występuje przed logowaniem; użyj poprawnej nazwy serwera od dostawcy i prawidłowego certyfikatu zamiast wyłączania ochrony.

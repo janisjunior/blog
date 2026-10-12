@@ -33,7 +33,7 @@ public sealed class BlogPublicationChecker(SiteClient client, string? archiveCac
         _ = ParsePost(html, uri); // require a recognised article, not a challenge or an error page
         var doc = Document(html);
         var title = HtmlEntity.DeEntitize(doc.DocumentNode.SelectSingleNode("//h1 | //div[@class='blog-details']/div[@class='title']")?.InnerText ?? "").Trim();
-        if (title.Length == 0) throw new InvalidOperationException("Brak tytułu ostatniego wpisu /blog.");
+        if (title.Length == 0) throw new InvalidOperationException("Brak tytułu wpisu /blog: " + uri.AbsoluteUri);
         var time = doc.DocumentNode.SelectSingleNode("//time[@datetime]")?.GetAttributeValue("datetime", "");
         var header = doc.DocumentNode.SelectSingleNode("//*[contains(@class,'blog-content-title') or contains(@class,'blog-header')]")?.InnerText ?? "";
         var date = Regex.Match(header, @"\b\d{1,2}[./-]\d{1,2}[./-](?:\d{4}|\d{2})\b").Value;
@@ -176,7 +176,12 @@ public sealed class BlogPublicationChecker(SiteClient client, string? archiveCac
     {
         var doc = Document(html); var basis = Basis(doc, uri);
         var roots = doc.DocumentNode.SelectNodes("//*[contains(concat(' ',normalize-space(@class),' '),' blog-content ') or contains(concat(' ',normalize-space(@class),' '),' subpage-content-blog ') or contains(concat(' ',normalize-space(@class),' '),' blog-header ')]");
-        if (roots == null) throw new InvalidOperationException("Nie rozpoznano treści wpisu /blog; kontrola duplikatów zatrzymana.");
+        if (roots == null)
+        {
+            var listing = doc.DocumentNode.SelectSingleNode("//*[contains(concat(' ',normalize-space(@class),' '),' blog_list ')]");
+            var reason = listing != null ? "Link do wpisu otwiera listę /blog zamiast artykułu" : "Nie rozpoznano treści wpisu /blog";
+            throw new InvalidOperationException(reason + ": " + uri.AbsoluteUri + ". Kontrola duplikatów nie jest kompletna.");
+        }
         var references = new HashSet<string>(StringComparer.Ordinal);
         foreach (var root in roots) foreach (var node in root.SelectNodes(".//*[@href or @src or @data-src]") ?? Enumerable.Empty<HtmlNode>())
             foreach (var attr in new[] { "href", "src", "data-src" })

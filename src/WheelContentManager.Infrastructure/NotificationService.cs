@@ -16,10 +16,20 @@ public sealed class NotificationService(IDbContextFactory<ContentDb> factory, Se
         var message = new MimeMessage(); message.From.Add(MailboxAddress.Parse(s.MailFrom)); message.To.Add(MailboxAddress.Parse(s.MailTo)); message.Subject = subject; message.MessageId = messageId;
         var body = new BodyBuilder { TextBody = text, HtmlBody = html }; if (attachment != null) await body.Attachments.AddAsync(attachment, ct); message.Body = body.ToMessageBody();
         using var smtp = new SmtpClient { Timeout = 30000 };
+        string? tlsDetails = null;
+        smtp.ServerCertificateValidationCallback = (_, certificate, chain, errors) =>
+        {
+            tlsDetails = SmtpTlsDiagnostics.Describe(s, certificate, chain, errors);
+            return errors == System.Net.Security.SslPolicyErrors.None;
+        };
         try
         {
             await smtp.ConnectAsync(s.SmtpHost, s.SmtpPort, s.SmtpSecurity == "SslOnConnect" ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls, ct);
             if (!string.IsNullOrWhiteSpace(s.SmtpUser)) await smtp.AuthenticateAsync(s.SmtpUser, secrets.Read("smtp") ?? throw new InvalidOperationException("Brak hasła SMTP."), ct);
+        }
+        catch (SslHandshakeException e)
+        {
+            throw new PromptMailNotSentException(tlsDetails ?? $"Nie ustanowiono TLS z {s.SmtpHost}:{s.SmtpPort} ({s.SmtpSecurity}). Serwer nie przekazał poprawnego certyfikatu lub nie obsługuje wybranego wariantu TLS. Logowanie nie zostało rozpoczęte.", e);
         }
         catch (Exception e) { throw new PromptMailNotSentException("Nie wysłano maila: sprawdź serwer SMTP, TLS i hasło aplikacji. Błąd: " + e.GetType().Name, e); }
         await smtp.SendAsync(message, ct); await smtp.DisconnectAsync(true, ct);

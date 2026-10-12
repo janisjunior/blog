@@ -6,6 +6,12 @@ using Xunit;
 namespace WheelContentManager.Tests;
 public class BlogTests
 {
+    [Fact] public void BlogListReturnedForArticleIsRejectedWithSpecificAddress()
+    {
+        var url = new Uri("https://jr-wheels.com/blog/nissan-z-%C3%97-sl03");
+        var error = Assert.Throws<InvalidOperationException>(() => BlogPublicationChecker.ParsePost("<div class='blog_list'><a href='/blog/entry'>entry</a></div>", url));
+        Assert.Contains("listę /blog zamiast artykułu", error.Message); Assert.Contains(url.AbsoluteUri, error.Message);
+    }
     [Theory][InlineData("JR", "jr-wheels.com")][InlineData("Concaver", "concaverwheels.com")][InlineData("Vesser", "vesserforged.com")]
     public void RealPostsMatchTheirGalleryPhotos(string brand, string host)
     {

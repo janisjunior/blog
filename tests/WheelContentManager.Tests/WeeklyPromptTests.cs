@@ -149,6 +149,26 @@ public class WeeklyPromptTests
         foreach (var item in batch.Items) { Assert.Contains(item.Package!.GalleryUrl, text); Assert.Contains("href=\"" + item.Package.GalleryUrl + "\"", html); }
         Assert.Contains("wtblog://weekly/" + batch.Key, html);
     }
+    private sealed class CaptureProgress : IProgress<string> { public List<string> Messages { get; } = []; public void Report(string value) => Messages.Add(value); }
+    [Fact] public async Task ManualMailReportsEveryBrandBeforeSmtp()
+    {
+        await using var env = await TestEnvironment.CreateAsync(); var mailer = new Mailer(); var service = await Service(env, mailer);
+        await service.TickAsync(Monday); var batch = Assert.Single(await service.BatchesAsync());
+        var progress = new CaptureProgress(); await service.SendNowAsync(batch.Key, Monday.AddMinutes(1), progress: progress);
+        foreach (var brand in Enum.GetValues<WheelBrand>()) Assert.Contains(progress.Messages, m => m.StartsWith(brand.Name()));
+        Assert.Contains("SMTP", progress.Messages.Last()); Assert.Equal(1, mailer.Calls);
+    }
+    [Fact] public async Task SlowBlogCheckTimesOutBeforeMailAndPreservesPendingBatch()
+    {
+        await using var env = await TestEnvironment.CreateAsync(); var mailer = new Mailer(); var service = await Service(env, mailer);
+        await service.TickAsync(Monday); var batch = Assert.Single(await service.BatchesAsync());
+        var timed = new WeeklyPromptService(env.Factory, env.Content, env.Services.GetRequiredService<SettingsService>(), mailer, env.Services.GetRequiredService<AppPaths>(), TimeSpan.FromMilliseconds(30));
+        env.Blog.RecentDelay = TimeSpan.FromSeconds(1);
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => timed.SendNowAsync(batch.Key, Monday.AddMinutes(1)));
+        Assert.Contains("limit czasu", error.Message); Assert.Contains("Mail nie został wysłany", error.Message);
+        Assert.Equal(0, mailer.Calls); var saved = Assert.Single(await service.BatchesAsync()); Assert.Equal("Pending", saved.MailState); Assert.Null(saved.LastMailAttempt);
+        Assert.False(OperationSession.IsRunning(env.Services.GetRequiredService<AppPaths>()));
+    }
     [Fact] public void WindowsTaskCallsOnlyPromptWorkflowAndCatchesMissedTriggers()
     {
         var xml = System.Xml.Linq.XDocument.Parse(WindowsScheduler.PromptTaskXml(@"C:\WT\Worker.exe", @"PC\User"));

@@ -212,8 +212,10 @@ public interface IBlogPublicationChecker
     Task<BlogCheck> CheckAsync(Gallery gallery, CancellationToken ct);
     Task<BlogCheck> CheckFreshAsync(Gallery gallery, CancellationToken ct) => CheckAsync(gallery, ct);
     Task<BlogCheck> CheckForExportAsync(Gallery gallery, CancellationToken ct) => CheckFreshAsync(gallery, ct);
+    Task<BlogCheck> CheckForExportAsync(Gallery gallery, CancellationToken ct, IProgress<string>? progress) => CheckForExportAsync(gallery, ct);
     Task<IReadOnlyList<RecentBlogPost>> RecentAsync(WheelBrand brand, CancellationToken ct);
     Task<IReadOnlyList<RecentBlogPost>> RecentFreshAsync(WheelBrand brand, CancellationToken ct) => RecentAsync(brand, ct);
+    Task<IReadOnlyList<RecentBlogPost>> RecentFreshAsync(WheelBrand brand, CancellationToken ct, IProgress<string>? progress) => RecentFreshAsync(brand, ct);
 }
 public record TopicSuggestion(Gallery Gallery, string Reason, string? LatestPostUrl);
 

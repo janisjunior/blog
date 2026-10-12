@@ -77,7 +77,8 @@ public partial class MainViewModel : ObservableObject
     {
         var key = weeklyBatchKey ?? throw new InvalidOperationException("Najpierw przygotuj 3 paczki.");
         Status = "Sprawdzanie /blog i wysyłanie 3 paczek…";
-        try { WeeklyStatus = Status = await Task.Run(() => services.GetRequiredService<WeeklyPromptService>().SendNowAsync(key, DateTimeOffset.UtcNow, ct), ct); }
+        var progress = new Progress<string>(message => WeeklyStatus = Status = message);
+        try { WeeklyStatus = Status = await Task.Run(() => services.GetRequiredService<WeeklyPromptService>().SendNowAsync(key, DateTimeOffset.UtcNow, ct, progress), ct); }
         finally { await LoadWeeklyAsync(); }
     });
     [RelayCommand] private void OpenWeeklyPackage(string folder) => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(folder) { UseShellExecute = true });

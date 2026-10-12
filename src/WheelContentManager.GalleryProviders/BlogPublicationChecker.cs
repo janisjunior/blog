@@ -16,7 +16,9 @@ public sealed class BlogPublicationChecker(SiteClient client, string? archiveCac
     private readonly Dictionary<string, (DateTimeOffset Time, BlogCheck Result)> confirmed = [];
     private readonly Dictionary<WheelBrand, (DateTimeOffset Time, IReadOnlyList<RecentBlogPost> Posts)> recent = [];
     public Task<IReadOnlyList<RecentBlogPost>> RecentFreshAsync(WheelBrand brand, CancellationToken ct) { recent.Remove(brand); return RecentAsync(brand, ct); }
-    public async Task<IReadOnlyList<RecentBlogPost>> RecentAsync(WheelBrand brand, CancellationToken ct)
+    public Task<IReadOnlyList<RecentBlogPost>> RecentFreshAsync(WheelBrand brand, CancellationToken ct, IProgress<string>? progress) { recent.Remove(brand); return RecentAsync(brand, ct, progress); }
+    public Task<IReadOnlyList<RecentBlogPost>> RecentAsync(WheelBrand brand, CancellationToken ct) => RecentAsync(brand, ct, null);
+    private async Task<IReadOnlyList<RecentBlogPost>> RecentAsync(WheelBrand brand, CancellationToken ct, IProgress<string>? progress)
     {
         if (recent.TryGetValue(brand, out var snapshot) && DateTimeOffset.UtcNow - snapshot.Time < TimeSpan.FromMinutes(15)) return snapshot.Posts;
         var host = brand switch { WheelBrand.JR => "jr-wheels.com", WheelBrand.Concaver => "concaverwheels.com", _ => "vesserforged.com" };
@@ -24,7 +26,7 @@ public sealed class BlogPublicationChecker(SiteClient client, string? archiveCac
         var urls = BlogLinks(listing, page).Where(u => !IsList(u)).Take(10).ToArray();
         if (urls.Length == 0) throw new InvalidOperationException("Nie rozpoznano ostatnich wpisów /blog. Sugestie są niedostępne.");
         var posts = new List<RecentBlogPost>();
-        foreach (var uri in urls) posts.Add(ParseRecent(await client.GetAsync(uri, false, ct), uri));
+        foreach (var uri in urls) { progress?.Report($"Ostatnie wpisy {posts.Count + 1}/{urls.Length}: {uri.AbsoluteUri}"); posts.Add(ParseRecent(await client.GetAsync(uri, false, ct), uri)); }
         var result = posts.OrderByDescending(p => p.Published ?? DateTimeOffset.MinValue).ToArray();
         recent[brand] = (DateTimeOffset.UtcNow, result); return result;
     }
@@ -56,13 +58,15 @@ public sealed class BlogPublicationChecker(SiteClient client, string? archiveCac
         var posts = await LoadArchiveAsync(brand, null, ct);
         await SaveArchiveAsync(brand, DateTimeOffset.UtcNow, posts, ct);
     }
-    public async Task<BlogCheck> CheckForExportAsync(Gallery gallery, CancellationToken ct)
+    public Task<BlogCheck> CheckForExportAsync(Gallery gallery, CancellationToken ct) => CheckForExportAsync(gallery, ct, null);
+    public async Task<BlogCheck> CheckForExportAsync(Gallery gallery, CancellationToken ct, IProgress<string>? progress)
     {
         // Always walk the live index, including pagination. Only reuse recent, fully
         // parsed article bodies; new URLs are fetched immediately and failures block export.
         var snapshot = RecentArchive(gallery.Brand);
         var reuse = snapshot?.Posts.ToDictionary(p => p.Url, StringComparer.Ordinal);
-        var posts = await LoadArchiveAsync(gallery.Brand, null, ct, reuse);
+        progress?.Report(snapshot == null ? "Pełna kontrola archiwum — pamięć wpisów wygasła. Może potrwać kilka minut." : "Kontrola aktualnych stron bloga z pamięcią zweryfikowanych wpisów.");
+        var posts = await LoadArchiveAsync(gallery.Brand, null, ct, reuse, progress);
         // Reusing articles must not extend their original freshness deadline.
         await SaveArchiveAsync(gallery.Brand, snapshot?.Time ?? DateTimeOffset.UtcNow, posts, ct);
         var result = Match(gallery, posts);
@@ -129,7 +133,7 @@ public sealed class BlogPublicationChecker(SiteClient client, string? archiveCac
         var result = Match(gallery, snapshot.Posts);
         return result with { Message = result.Message + $" · sprawdzono {snapshot.Posts.Count} wpisów" };
     }
-    private async Task<IReadOnlyList<PublishedPost>> LoadArchiveAsync(WheelBrand brand, Gallery? gallery, CancellationToken ct, IReadOnlyDictionary<string, PublishedPost>? reuse = null)
+    private async Task<IReadOnlyList<PublishedPost>> LoadArchiveAsync(WheelBrand brand, Gallery? gallery, CancellationToken ct, IReadOnlyDictionary<string, PublishedPost>? reuse = null, IProgress<string>? progress = null)
     {
             var host = Host(brand);
             var queue = new Queue<Uri>(); queue.Enqueue(new($"https://{host}/blog")); var pages = new HashSet<string>(); var urls = new HashSet<string>(); var posts = new List<PublishedPost>();
@@ -137,6 +141,7 @@ public sealed class BlogPublicationChecker(SiteClient client, string? archiveCac
             {
                 if (!pages.Add(page.AbsoluteUri)) continue;
                 if (pages.Count > 100) throw new InvalidOperationException("Kontrola /blog przekroczyła limit stron; generowanie zatrzymano.");
+                progress?.Report($"Lista bloga, strona {pages.Count}; sprawdzono {posts.Count} wpisów: {page.AbsoluteUri}");
                 var doc = Document(await client.GetAsync(page, false, ct));
                 var links = BlogLinks(doc, page);
                 if (links.Count == 0) throw new InvalidOperationException("Nie rozpoznano listy /blog; generowanie zatrzymano.");
@@ -144,6 +149,7 @@ public sealed class BlogPublicationChecker(SiteClient client, string? archiveCac
                 {
                     if (IsList(uri)) { if (!pages.Contains(uri.AbsoluteUri)) queue.Enqueue(uri); continue; }
                     if (!urls.Add(uri.AbsoluteUri)) continue;
+                    progress?.Report($"Sprawdzanie wpisu {posts.Count + 1}: {uri.AbsoluteUri}");
                     var post = reuse != null && reuse.TryGetValue(uri.AbsoluteUri, out var previous) ? previous : ParsePost(await client.GetAsync(uri, false, ct), uri); posts.Add(post);
                     var exact = gallery == null ? null : Match(gallery, [post]);
                     if (exact?.Published == true)

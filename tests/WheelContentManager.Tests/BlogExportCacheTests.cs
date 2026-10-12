@@ -5,6 +5,16 @@ using Xunit;
 namespace WheelContentManager.Tests;
 public class BlogExportCacheTests
 {
+    private sealed class CaptureProgress : IProgress<string> { public List<string> Messages { get; } = []; public void Report(string value) => Messages.Add(value); }
+    [Fact] public async Task ColdArchiveReportsActualPageAndArticleUrls()
+    {
+        using var handler = new BlogHandler(); using var http = new HttpClient(handler);
+        var checker = new BlogPublicationChecker(new SiteClient(http)); var progress = new CaptureProgress();
+        await checker.CheckForExportAsync(Gallery(), default, progress);
+        Assert.Contains(progress.Messages, m => m.Contains("https://jr-wheels.com/blog?page=1"));
+        Assert.Contains(progress.Messages, m => m.Contains("wpisu 1:") && m.Contains("/blog/first"));
+        Assert.Contains(progress.Messages, m => m.Contains("wpisu 2:") && m.Contains("/blog/second"));
+    }
     private static Gallery Gallery()
     {
         var g = Fixtures.Gallery(); g.Images = [new() { Url = "https://jr-wheels.com/matched.jpg" }]; return g;

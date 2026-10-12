@@ -20,7 +20,7 @@ public sealed class WeeklyPromptBatch
 public interface IWeeklyPromptMailer { Task SendAsync(WeeklyPromptBatch batch, CancellationToken ct); }
 public sealed class PromptMailNotSentException(string message, Exception? inner = null) : InvalidOperationException(message, inner);
 
-public sealed class WeeklyPromptService(IDbContextFactory<ContentDb> factory, ContentService content, SettingsService settings, IWeeklyPromptMailer mailer, AppPaths paths)
+public sealed class WeeklyPromptService(IDbContextFactory<ContentDb> factory, ContentService content, SettingsService settings, IWeeklyPromptMailer mailer, AppPaths paths, TimeSpan? deliveryCheckTimeout = null)
 {
     private const string Prefix = "weekly-prompts-";
     public static TimeZoneInfo Poland => TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "Central European Standard Time" : "Europe/Warsaw");
@@ -122,11 +122,11 @@ public sealed class WeeklyPromptService(IDbContextFactory<ContentDb> factory, Co
         var deliver = now >= batch.Due && s.WeeklyPromptMailEnabled && (batch.LastMailAttempt == null || now - batch.LastMailAttempt >= TimeSpan.FromMinutes(15));
         if (!deliver && now - batch.LastSiteCheckAt < TimeSpan.FromHours(6)) return batch.Status + (!s.WeeklyPromptMailEnabled ? " Skonfiguruj i włącz pocztę." : "");
         // Recheck live indexes at delivery, even if packages were prepared earlier.
-        if (!await CheckDeliveryAsync(batch, now, ct)) return batch.Status;
+        if (!await CheckDeliveryAsync(batch, now, ct, progress)) return batch.Status;
         if (!deliver) return batch.Status + (!s.WeeklyPromptMailEnabled ? " Skonfiguruj i włącz pocztę." : "");
-        return await DeliverAsync(batch, now, s, ct);
+        return await DeliverAsync(batch, now, s, ct, progress);
     }
-    public async Task<string> SendNowAsync(string key, DateTimeOffset now, CancellationToken ct = default)
+    public async Task<string> SendNowAsync(string key, DateTimeOffset now, CancellationToken ct = default, IProgress<string>? progress = null)
     {
         using var gate = OperationLock.Acquire(Path.Combine(paths.Root, "weekly-prompts.lock"));
         var batch = (await BatchesAsync(ct)).SingleOrDefault(b => b.Key == key)
@@ -135,15 +135,23 @@ public sealed class WeeklyPromptService(IDbContextFactory<ContentDb> factory, Co
         if (batch.MailState is "Sending" or "Unknown") throw new InvalidOperationException("Poprzednia wysyłka ma niepewny wynik. Sprawdź skrzynkę i rozstrzygnij ją w ustawieniach poczty.");
         if (batch.Items.Count != 3 || Enum.GetValues<WheelBrand>().Any(b => batch.Items.Count(i => i.Brand == b && i.Package != null && File.Exists(i.Package.Document) && File.Exists(i.Package.Instructions)) != 1))
             throw new InvalidOperationException("Najpierw przygotuj wszystkie 3 paczki — po jednej dla każdej marki.");
-        if (!await CheckDeliveryAsync(batch, now, ct)) return batch.Status;
-        return await DeliverAsync(batch, now, await settings.LoadAsync(ct), ct);
+        if (!await CheckDeliveryAsync(batch, now, ct, progress)) return batch.Status;
+        return await DeliverAsync(batch, now, await settings.LoadAsync(ct), ct, progress);
     }
-    private async Task<bool> CheckDeliveryAsync(WeeklyPromptBatch batch, DateTimeOffset now, CancellationToken ct)
+    private sealed class CallbackProgress(Action<string> callback) : IProgress<string> { public void Report(string value) => callback(value); }
+    private async Task<bool> CheckDeliveryAsync(WeeklyPromptBatch batch, DateTimeOffset now, CancellationToken ct, IProgress<string>? progress)
     {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(deliveryCheckTimeout ?? TimeSpan.FromMinutes(10));
+        var lastStep = "Kontrola /blog";
+        try
+        {
         foreach (var item in batch.Items)
         {
-            var match = await content.CheckPromptDeliveryAsync(item.GalleryId, ct);
-            var recent = await content.RecentPromptPostsAsync(item.Brand, ct);
+            var brandProgress = new CallbackProgress(message => { lastStep = item.Brand.Name() + " — " + message; progress?.Report(lastStep); });
+            brandProgress.Report("Kontrola przed mailem; wiadomość nie została jeszcze wysłana.");
+            var match = await content.CheckPromptDeliveryAsync(item.GalleryId, timeout.Token, brandProgress);
+            var recent = await content.RecentPromptPostsAsync(item.Brand, timeout.Token, brandProgress);
             if (match.Published || match.PossibleDuplicate || recent.FirstOrDefault()?.WheelModels.Any(m => TopicPlanner.Model(m) == TopicPlanner.Model(item.Model)) == true)
             {
                 batch.Items.Remove(item); batch.DeliveryCheckedAt = null; await SaveAsync(batch, ct);
@@ -153,10 +161,17 @@ public sealed class WeeklyPromptService(IDbContextFactory<ContentDb> factory, Co
         }
         batch.LastSiteCheckAt = now; await SaveAsync(batch, ct);
         return true;
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested && timeout.IsCancellationRequested)
+        {
+            batch.Status = "Kontrola /blog przekroczyła limit czasu. Mail nie został wysłany. Ostatni etap: " + lastStep + ". Spróbuj ponownie lub odśwież listę danej marki.";
+            await SaveAsync(batch, ct); throw new InvalidOperationException(batch.Status);
+        }
     }
-    private async Task<string> DeliverAsync(WeeklyPromptBatch batch, DateTimeOffset now, AppSettings s, CancellationToken ct)
+    private async Task<string> DeliverAsync(WeeklyPromptBatch batch, DateTimeOffset now, AppSettings s, CancellationToken ct, IProgress<string>? progress)
     {
         using var sending = OperationSession.Start(paths, "Wysyłanie 3 paczek mailem", ct);
+        sending.Progress(progress).Report("Kontrola blogów zakończona. Przygotowanie załącznika i wysyłanie przez SMTP…");
         batch.MailState = "Sending"; batch.LastMailAttempt = now; await SaveAsync(batch, sending.Token);
         try { await mailer.SendAsync(batch, sending.Token); batch.MailState = "Sent"; batch.Status = "Wysłano 3 paczki na " + s.MailTo; }
         catch (PromptMailNotSentException e) { batch.MailState = "Pending"; batch.Status = e.Message; }

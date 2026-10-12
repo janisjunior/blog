@@ -7,7 +7,22 @@ function Invoke-DotNet([string[]]$Arguments) {
 }
 Invoke-DotNet -Arguments @('restore', 'WheelContentManager.sln', '--locked-mode')
 Invoke-DotNet -Arguments @('build', 'WheelContentManager.sln', '-c', 'Release', '--no-restore')
-Invoke-DotNet -Arguments @('test', 'tests/WheelContentManager.Tests', '-c', 'Release', '--no-build')
+$testResults = Join-Path (Get-Location) 'artifacts/test-results'
+try {
+    Invoke-DotNet -Arguments @('test', 'tests/WheelContentManager.Tests', '-c', 'Release', '--no-build', '--logger', 'trx;LogFileName=windows.trx', '--results-directory', $testResults)
+} catch {
+    $report = Join-Path $testResults 'windows.trx'
+    if (Test-Path $report) {
+        [xml]$results = Get-Content $report -Raw
+        foreach ($test in $results.TestRun.Results.UnitTestResult) {
+            if ($test.outcome -eq 'Failed') {
+                $message = "$($test.testName): $($test.Output.ErrorInfo.Message)".Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+                Write-Host "::error::$message"
+            }
+        }
+    }
+    throw
+}
 $destination = Join-Path (Get-Location) 'artifacts/WheelContentManager'
 $worker = Join-Path (Get-Location) 'artifacts/worker'
 if (Test-Path $destination) { Remove-Item -Recurse -Force $destination }

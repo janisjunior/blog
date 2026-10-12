@@ -19,6 +19,7 @@ public class GalleryPromptFileTests
         Assert.Equal(calls, env.Ai.Calls.Count); Assert.Single(await env.Content.ArticlesAsync());
         Assert.True(File.Exists(package.Document)); Assert.True(File.Exists(package.Instructions)); Assert.True(File.Exists(package.Photo));
         using var doc = WordprocessingDocument.Open(package.Document, false); var main = doc.MainDocumentPart!;
+        Assert.DoesNotContain("[ARTYKUL_", package.Prompt);
         Assert.Contains("od razu wykonaj", main.Document!.InnerText); Assert.Contains("2200–2600", main.Document.InnerText);
         Assert.Contains(main.HyperlinkRelationships, link => link.Uri.AbsoluteUri == g.Url);
         Assert.Contains(main.HyperlinkRelationships, link => link.Uri.AbsoluteUri.Contains("/product/"));

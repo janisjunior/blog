@@ -28,7 +28,7 @@ public sealed class ContentDb(DbContextOptions<ContentDb> options) : DbContext(o
         b.Entity<PromptTemplate>().HasIndex(x => x.Brand).IsUnique(); b.Entity<PromptVersion>().HasIndex(x => new { x.PromptTemplateId, x.Revision }).IsUnique();
         b.Entity<AutomationRun>().HasIndex(x => x.PeriodKey).IsUnique(); b.Entity<NotificationHistory>().HasIndex(x => x.RunId).IsUnique();
         b.Entity<ApplicationSetting>().HasKey(x => x.Key);
-        b.Entity<Article>().Ignore(x => x.Display); b.Entity<Vehicle>().Ignore(x => x.Display); b.Entity<Gallery>().Ignore(x => x.Display).Ignore(x => x.Complete);
+        b.Entity<Article>().Ignore(x => x.Display); b.Entity<Vehicle>().Ignore(x => x.Display); b.Entity<Gallery>().Ignore(x => x.Display).Ignore(x => x.Complete).Ignore(x => x.PromptUsed);
         foreach (var type in b.Model.GetEntityTypes()) foreach (var property in type.GetProperties())
         {
             if (property.ClrType == typeof(DateTimeOffset)) property.SetValueConverter(new Microsoft.EntityFrameworkCore.Storage.ValueConversion.DateTimeOffsetToBinaryConverter());

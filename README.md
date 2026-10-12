@@ -1,4 +1,4 @@
-# WT - Blog Generator 0.6.0
+# WT - Blog Generator 0.6.1
 
 Program do wybierania galerii JR Wheels, Concaver Wheels i Vesser Forged oraz przygotowywania kompletnych plików do własnego czatu ChatGPT. Jasny panel: wybór marki, lista galerii, podgląd zdjęcia i zapis pliku. Bez importowania odpowiedzi, zatwierdzania artykułów, API, SMTP i automatycznego generowania tekstów.
 
@@ -8,13 +8,19 @@ Program do wybierania galerii JR Wheels, Concaver Wheels i Vesser Forged oraz pr
 2. Wyszukaj samochód lub felgi i wybierz galerię. Lista pomija wykryte oraz możliwe dopasowania do wpisów na stronie. Lokalny tekst zapisany w poprzedniej wersji nie blokuje galerii.
 3. Kliknij **Otwórz galerię zdjęć**, aby zobaczyć źródło i pobrać wybrane zdjęcia. Podgląd i przycisk **Otwórz zdjęcie** pomagają odnaleźć zdjęcie tej konfiguracji.
 4. Wybierz folder i kliknij **Przygotuj plik do ChatGPT**. Program odświeży szczegóły galerii, sprawdzi aktualne `/blog` i oficjalną kartę modelu, a następnie otworzy folder gotowych plików.
-5. Wrzuć **Wrzuc do ChatGPT.docx** do swojego czatu. Dokument zawiera pełne polecenie, zweryfikowane dane, wymagania PL/EN, klikalne źródła i zdjęcie JPG/PNG, jeśli zostało pobrane. Nie trzeba kopiować oddzielnego polecenia. Zdjęcie jest też osobnym plikiem w folderze. Jeśli formatem zdjęcia jest WebP, dołącz je osobno. Awaria pobrania zdjęcia nie usuwa dokumentu ani linków do galerii.
+5. Wrzuć **Wrzuc do ChatGPT.docx** do swojego czatu. Dokument zawiera pełne polecenie, zweryfikowane dane, wymagania EN/PL, klikalne źródła i zdjęcie JPG/PNG, jeśli zostało pobrane. Nie trzeba kopiować oddzielnego polecenia. Zdjęcie jest też osobnym plikiem w folderze. Jeśli formatem zdjęcia jest WebP, dołącz je osobno. Awaria pobrania zdjęcia nie usuwa dokumentu ani linków do galerii.
 
-Polecenie prosi o dwa niezależne artykuły po 2200–2600 słów. Zawiera kompletne wymagania z dostarczonego [dokumentu redakcyjnego](docs/editorial/Wpisy%20na%20bloga.docx). Nie wymyśla danych niepotwierdzonych. Działanie osobistego ChatGPT zależy od wybranego modelu i dostępnych limitów konta; program nie loguje się do niego i nie wywołuje API.
+Polecenie prosi zawsze najpierw o niezależny artykuł po angielsku (EN), potem po polsku (PL), każdy po 2200–2600 słów. Na samej górze DOCX i TXT znajduje się link do galerii oraz jej źródłowy numer / ID; w DOCX link jest klikalny. Zawiera kompletne wymagania z dostarczonego [dokumentu redakcyjnego](docs/editorial/Wpisy%20na%20bloga.docx). Nie wymyśla danych niepotwierdzonych. Działanie osobistego ChatGPT zależy od wybranego modelu i dostępnych limitów konta; program nie loguje się do niego i nie wywołuje API.
+
+Po przygotowaniu pliku galeria jest oznaczana jako wykorzystana: jej nazwa samochodu i model felg są przekreślone, a wiersz znajduje się na końcu listy. Nadal można otworzyć galerię i przygotować plik ponownie. Przycisk **Oznacz galerię jako wykorzystaną** pozwala oznaczyć także wcześniej użyty temat, a **Cofnij oznaczenie wykorzystania** przywraca go do niewykorzystanych. Oznaczenie pozostaje po restarcie i odświeżeniu listy; nie zmienia historii lokalnych artykułów.
 
 ## Sprawdzanie dostępności
 
 Archiwum wszystkich podstron `/blog` jest pobierane raz dla sprawdzanej marki, a następnie porównywane z całą listą. Lista zapamiętuje datę sprawdzenia i jest szybko dostępna przy kolejnych wejściach. **Sprawdź /blog i odśwież listę** aktualizuje ją na żądanie. Nie są pobierane pełne szczegóły kilku tysięcy galerii naraz; sprawdzenie listy używa dostępnych danych i miniatur, a ostateczna kontrola pełnej galerii i zdjęć odbywa się przed eksportem.
+
+Przy przygotowaniu pliku program pobiera galerię i kartę felg tylko raz. Zawsze odczytuje aktualną listę wpisów ze wszystkich podstron `/blog` i natychmiast pobiera nowe wpisy. Treść wcześniej sprawdzonych wpisów przechowuje przez maksymalnie 15 minut, również po ponownym uruchomieniu programu; potem pobiera ją ponownie. Przycisk odświeżenia listy wymusza pełny skan także przed upływem tego czasu. Edycja istniejącego wpisu może więc zostać wykryta dopiero po wygaśnięciu cache albo ręcznym odświeżeniu. Niepełny odczyt aktualnej listy blokuje przygotowanie pliku. Pierwszy skan i ponowne pełne sprawdzenie po upływie 15 minut nadal mogą trwać dłużej.
+
+Pobieranie opcjonalnego zdjęcia ma limit 8 sekund. Jeśli zdjęcie nie zdąży się pobrać, DOCX i TXT zachowują klikalne linki do galerii oraz zdjęć. Przycisk **Anuluj** przerywa przygotowanie na żądanie.
 
 Potwierdzone i możliwe duplikaty oraz nieudane sprawdzenie archiwum blokują zapis pliku. Aktualna karta modelu musi pasować do wybranej konfiguracji. Pierwsze sprawdzanie stron może trwać kilka minut; przycisk **Anuluj** przerywa operację. Program respektuje robots.txt i limity żądań.
 

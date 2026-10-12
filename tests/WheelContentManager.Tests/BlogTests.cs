@@ -80,6 +80,7 @@ public class BlogTests
 
 internal sealed class BlogHandler : HttpMessageHandler
 {
+    public bool NewPost { get; set; } public bool FailIndex { get; set; }
     public bool FirstMatches { get; set; } public bool SecondMatches { get; set; } = true; public bool FailSecond { get; set; } public List<string> Requests { get; } = [];
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
@@ -87,8 +88,9 @@ internal sealed class BlogHandler : HttpMessageHandler
         var html = path switch
         {
             "/robots.txt" => "User-agent: *\nAllow: /",
-            "/blog" => "<a href='/blog/first'>first</a><a href='/blog?page=1'>older</a>",
-            "/blog?page=1" => "<a href='/blog/second'>second</a><a href='/blog'>newer</a>",
+            "/blog" => (NewPost ? "<a href='/blog/new'>new</a>" : "") + "<a href='/blog/first'>first</a><a href='/blog?page=1'>older</a>",
+            "/blog?page=1" => FailIndex ? "unrecognised index" : "<a href='/blog/second'>second</a><a href='/blog'>newer</a>",
+            "/blog/new" => "<div class='blog-content'><img src='/matched.jpg'></div>",
             "/blog/first" => FirstMatches ? "<div class='blog-content'><img src='/matched.jpg'></div>" : "<div class='blog-content'>Unrelated entry</div>",
             "/blog/second" => FailSecond ? "changed HTML" : SecondMatches ? "<div class='blog-content'><img src='/matched.jpg'></div>" : "<div class='blog-content'>Unrelated entry</div>",
             _ => throw new InvalidOperationException("Unexpected request: " + path)

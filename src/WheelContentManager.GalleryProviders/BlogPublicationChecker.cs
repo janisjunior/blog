@@ -5,8 +5,11 @@ using WheelContentManager.Core;
 namespace WheelContentManager.GalleryProviders;
 
 public sealed record PublishedPost(string Url, string Text, HashSet<string> References);
-public sealed class BlogPublicationChecker(SiteClient client) : IBlogPublicationChecker
+public sealed class BlogPublicationChecker(SiteClient client, string? archiveCacheDirectory = null) : IBlogPublicationChecker
 {
+    private sealed record SavedArchive(int Version, DateTimeOffset Time, IReadOnlyList<PublishedPost> Posts);
+    private static readonly TimeSpan ArchiveLifetime = TimeSpan.FromMinutes(15);
+    private readonly HashSet<WheelBrand> ignoredDiskBrands = [];
     private sealed record TokenizedPost(string Text);
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<PublishedPost, TokenizedPost> normalizedPosts = new();
     private readonly Dictionary<WheelBrand, (DateTimeOffset Time, IReadOnlyList<PublishedPost> Posts)> cache = [];
@@ -41,16 +44,76 @@ public sealed class BlogPublicationChecker(SiteClient client) : IBlogPublication
     }
     public Task<BlogCheck> CheckFreshAsync(Gallery gallery, CancellationToken ct)
     {
-        cache.Remove(gallery.Brand);
+        InvalidateArchive(gallery.Brand);
         foreach (var key in confirmed.Keys.Where(key => key.StartsWith(gallery.Brand + ":", StringComparison.Ordinal)).ToArray()) confirmed.Remove(key);
         return CheckAsync(gallery, ct);
     }
     public async Task PrepareArchiveAsync(WheelBrand brand, CancellationToken ct)
     {
-        cache.Remove(brand);
+        InvalidateArchive(brand);
         foreach (var key in confirmed.Keys.Where(key => key.StartsWith(brand + ":", StringComparison.Ordinal)).ToArray()) confirmed.Remove(key);
         var posts = await LoadArchiveAsync(brand, null, ct);
-        cache[brand] = (DateTimeOffset.UtcNow, posts);
+        await SaveArchiveAsync(brand, DateTimeOffset.UtcNow, posts, ct);
+    }
+    public async Task<BlogCheck> CheckForExportAsync(Gallery gallery, CancellationToken ct)
+    {
+        // Always walk the live index, including pagination. Only reuse recent, fully
+        // parsed article bodies; new URLs are fetched immediately and failures block export.
+        var snapshot = RecentArchive(gallery.Brand);
+        var reuse = snapshot?.Posts.ToDictionary(p => p.Url, StringComparer.Ordinal);
+        var posts = await LoadArchiveAsync(gallery.Brand, null, ct, reuse);
+        // Reusing articles must not extend their original freshness deadline.
+        await SaveArchiveAsync(gallery.Brand, snapshot?.Time ?? DateTimeOffset.UtcNow, posts, ct);
+        var result = Match(gallery, posts);
+        return result with { Message = result.Message + $" · aktualna lista /blog, {posts.Count} wpisów; treści sprawdzane co najwyżej 15 minut temu" };
+    }
+    private void InvalidateArchive(WheelBrand brand)
+    {
+        cache.Remove(brand); ignoredDiskBrands.Add(brand);
+        if (archiveCacheDirectory == null) return;
+        try { File.Delete(Path.Combine(archiveCacheDirectory, brand + ".json")); }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+    }
+    private SavedArchive? RecentArchive(WheelBrand brand)
+    {
+        if (cache.TryGetValue(brand, out var memory) && IsRecent(memory.Time)) return new(1, memory.Time, memory.Posts);
+        if (archiveCacheDirectory == null || ignoredDiskBrands.Contains(brand)) return null;
+        try
+        {
+            var path = Path.Combine(archiveCacheDirectory, brand + ".json");
+            if (!File.Exists(path) || new FileInfo(path).Length > 16 * 1024 * 1024) return null;
+            var saved = System.Text.Json.JsonSerializer.Deserialize<SavedArchive>(File.ReadAllText(path));
+            if (saved == null || saved.Version != 1 || !IsRecent(saved.Time) || saved.Posts == null || saved.Posts.Count == 0 ||
+                saved.Posts.Any(p => p == null || p.Text == null || p.References == null || !Uri.TryCreate(p.Url, UriKind.Absolute, out var uri) || uri.Scheme != "https" || uri.Host != Host(brand) || !uri.AbsolutePath.StartsWith("/blog/", StringComparison.Ordinal)) ||
+                saved.Posts.Select(p => p.Url).Distinct().Count() != saved.Posts.Count) return null;
+            return saved;
+        }
+        catch (IOException) { return null; }
+        catch (UnauthorizedAccessException) { return null; }
+        catch (System.Text.Json.JsonException) { return null; }
+    }
+    private static bool IsRecent(DateTimeOffset time) => time <= DateTimeOffset.UtcNow && DateTimeOffset.UtcNow - time <= ArchiveLifetime;
+    private static string Host(WheelBrand brand) => brand switch { WheelBrand.JR => "jr-wheels.com", WheelBrand.Concaver => "concaverwheels.com", _ => "vesserforged.com" };
+    private async Task SaveArchiveAsync(WheelBrand brand, DateTimeOffset time, IReadOnlyList<PublishedPost> posts, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested(); cache[brand] = (time, posts);
+        if (archiveCacheDirectory == null) return;
+        var path = Path.Combine(archiveCacheDirectory, brand + ".json"); var temp = path + ".tmp";
+        try
+        {
+            Directory.CreateDirectory(archiveCacheDirectory);
+            await File.WriteAllTextAsync(temp, System.Text.Json.JsonSerializer.Serialize(new SavedArchive(1, time, posts)), ct);
+            File.Move(temp, path, true); ignoredDiskBrands.Remove(brand);
+        }
+        catch (IOException) { /* Disk cache is optional; verified in-memory results remain usable. */ }
+        catch (UnauthorizedAccessException) { }
+        finally
+        {
+            try { if (File.Exists(temp)) File.Delete(temp); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
     }
     public async Task<BlogCheck> CheckAsync(Gallery gallery, CancellationToken ct)
     {
@@ -60,14 +123,14 @@ public sealed class BlogPublicationChecker(SiteClient client) : IBlogPublication
         {
             var posts = await LoadArchiveAsync(gallery.Brand, gallery, ct);
             if (confirmed.TryGetValue(key, out var match)) return match.Result;
-            snapshot = (DateTimeOffset.UtcNow, posts); cache[gallery.Brand] = snapshot;
+            snapshot = (DateTimeOffset.UtcNow, posts); await SaveArchiveAsync(gallery.Brand, snapshot.Time, posts, ct);
         }
         var result = Match(gallery, snapshot.Posts);
         return result with { Message = result.Message + $" · sprawdzono {snapshot.Posts.Count} wpisów" };
     }
-    private async Task<IReadOnlyList<PublishedPost>> LoadArchiveAsync(WheelBrand brand, Gallery? gallery, CancellationToken ct)
+    private async Task<IReadOnlyList<PublishedPost>> LoadArchiveAsync(WheelBrand brand, Gallery? gallery, CancellationToken ct, IReadOnlyDictionary<string, PublishedPost>? reuse = null)
     {
-            var host = brand switch { WheelBrand.JR => "jr-wheels.com", WheelBrand.Concaver => "concaverwheels.com", _ => "vesserforged.com" };
+            var host = Host(brand);
             var queue = new Queue<Uri>(); queue.Enqueue(new($"https://{host}/blog")); var pages = new HashSet<string>(); var urls = new HashSet<string>(); var posts = new List<PublishedPost>();
             while (queue.TryDequeue(out var page))
             {
@@ -80,7 +143,7 @@ public sealed class BlogPublicationChecker(SiteClient client) : IBlogPublication
                 {
                     if (IsList(uri)) { if (!pages.Contains(uri.AbsoluteUri)) queue.Enqueue(uri); continue; }
                     if (!urls.Add(uri.AbsoluteUri)) continue;
-                    var post = ParsePost(await client.GetAsync(uri, false, ct), uri); posts.Add(post);
+                    var post = reuse != null && reuse.TryGetValue(uri.AbsoluteUri, out var previous) ? previous : ParsePost(await client.GetAsync(uri, false, ct), uri); posts.Add(post);
                     var exact = gallery == null ? null : Match(gallery, [post]);
                     if (exact?.Published == true)
                     {

@@ -27,6 +27,12 @@ public sealed partial class ContentService(IDbContextFactory<ContentDb> factory,
         _ => $"Błąd operacji: {e.GetType().Name}. Dane postępu zapisano; sprawdź konfigurację."
     };
     public async Task<List<Gallery>> GalleriesAsync(CancellationToken ct = default) { await using var db = await factory.CreateDbContextAsync(ct); return await db.FullGalleries.OrderByDescending(x => x.FirstDetected).AsNoTracking().ToListAsync(ct); }
+    public async Task<Gallery?> GalleryAsync(long id, CancellationToken ct = default)
+    {
+        await using var db = await factory.CreateDbContextAsync(ct); var gallery = await db.FullGalleries.AsNoTracking().SingleOrDefaultAsync(g => g.Id == id, ct);
+        if (gallery != null) gallery.PromptUsed = await db.ApplicationSettings.AnyAsync(s => s.Key == PromptUsedKey(id), ct);
+        return gallery;
+    }
     public async Task<List<Article>> ArticlesAsync(CancellationToken ct = default) { await using var db = await factory.CreateDbContextAsync(ct); return await db.FullArticles.OrderByDescending(x => x.Created).AsNoTracking().ToListAsync(ct); }
     public async Task<List<ErrorLog>> LogsAsync() { await using var db = await factory.CreateDbContextAsync(); return await db.ErrorLogs.OrderByDescending(x => x.Id).Take(500).AsNoTracking().ToListAsync(); }
     public async Task<List<AutomationRun>> RunsAsync() { await using var db = await factory.CreateDbContextAsync(); return await db.AutomationRuns.OrderByDescending(x => x.Started).Take(50).AsNoTracking().ToListAsync(); }
@@ -104,26 +110,27 @@ public sealed partial class ContentService(IDbContextFactory<ContentDb> factory,
     {
         using var operation = OperationSession.Start(paths, "Pobieranie szczegółów galerii", ct); ct = operation.Token; await LoadDetailsInternalAsync(id, ct);
     }
-    private async Task LoadDetailsInternalAsync(long id, CancellationToken ct)
+    private async Task LoadDetailsInternalAsync(long id, CancellationToken ct, bool forceRefresh = false)
     {
         await using var db = await factory.CreateDbContextAsync(ct); var row = await db.FullGalleries.SingleAsync(x => x.Id == id, ct);
-        if (row.DetailsLoaded) return;
+        if (row.DetailsLoaded && !forceRefresh) return;
         var detail = await galleries.Single(x => x.Brand == row.Brand).LoadAsync(row.Url, ct);
         row.Vehicle.Make = detail.Vehicle.Make; row.Vehicle.Model = detail.Vehicle.Model; row.Vehicle.Version = detail.Vehicle.Version;
         var target = row.Specification; var source = detail.Specification;
         var map = new Dictionary<string,string> { ["Model"] = "WheelModel", ["Et"] = "ET", ["Pcd"] = "PCD" };
         foreach (var property in typeof(WheelSpecification).GetProperties().Where(x => x.PropertyType == typeof(string) && x.Name != nameof(WheelSpecification.FactsJson))) if (!row.Sources.Any(x => x.Manual && x.Field == map.GetValueOrDefault(property.Name, property.Name))) property.SetValue(target, property.GetValue(source));
+        if (forceRefresh) row.Sources.RemoveAll(s => !s.Manual && !detail.Sources.Any(f => f.Field == s.Field));
         foreach (var reference in detail.Sources) { var old = row.Sources.FirstOrDefault(x => x.Field == reference.Field); if (old?.Manual == true) continue; if (old == null) row.Sources.Add(reference); else { old.Value = reference.Value; old.Url = reference.Url; old.Confirmed = reference.Confirmed; } }
         foreach (var image in detail.Images) if (!row.Images.Any(x => x.Url == image.Url)) row.Images.Add(image);
         row.DetailsLoaded = true; row.MissingData = detail.MissingData; row.LastChecked = DateTimeOffset.UtcNow; row.ThumbnailUrl ??= row.Images.FirstOrDefault()?.Url;
         await db.SaveChangesAsync(ct);
     }
-    public async Task<BlogCheck> CheckBlogAsync(long id, CancellationToken ct, bool fresh = false)
+    public async Task<BlogCheck> CheckBlogAsync(long id, CancellationToken ct, bool fresh = false, bool forExport = false)
     {
         await using var db = await factory.CreateDbContextAsync(ct); var g = await db.FullGalleries.SingleAsync(x => x.Id == id, ct);
         try
         {
-            var result = fresh ? await blog.CheckFreshAsync(g, ct) : await blog.CheckAsync(g, ct); g.BlogCheckedAt = DateTimeOffset.UtcNow; g.BlogStatus = result.Message; g.ExistingBlogUrl = result.Url; g.BlogBlocked = result.Published || result.PossibleDuplicate; await db.SaveChangesAsync(ct); return result;
+            var result = forExport ? await blog.CheckForExportAsync(g, ct) : fresh ? await blog.CheckFreshAsync(g, ct) : await blog.CheckAsync(g, ct); g.BlogCheckedAt = DateTimeOffset.UtcNow; g.BlogStatus = result.Message; g.ExistingBlogUrl = result.Url; g.BlogBlocked = result.Published || result.PossibleDuplicate; await db.SaveChangesAsync(ct); return result;
         }
         catch (Exception e) when (e is not OperationCanceledException || !ct.IsCancellationRequested)
         {

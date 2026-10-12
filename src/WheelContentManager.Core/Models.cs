@@ -30,6 +30,7 @@ public class Gallery
     public DateTimeOffset LastChecked { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? SourcePublished { get; set; }
     public bool Used { get; set; }
+    public bool PromptUsed { get; set; }
     public string MissingData { get; set; } = "";
     public string? VisualAnalysis { get; set; }
     public string Display => $"{Brand.Name()} · {Vehicle.Display} · {Specification.Model ?? "model felg nieznany"}";
@@ -206,6 +207,7 @@ public interface IBlogPublicationChecker
     Task PrepareArchiveAsync(WheelBrand brand, CancellationToken ct) => Task.CompletedTask;
     Task<BlogCheck> CheckAsync(Gallery gallery, CancellationToken ct);
     Task<BlogCheck> CheckFreshAsync(Gallery gallery, CancellationToken ct) => CheckAsync(gallery, ct);
+    Task<BlogCheck> CheckForExportAsync(Gallery gallery, CancellationToken ct) => CheckFreshAsync(gallery, ct);
     Task<IReadOnlyList<RecentBlogPost>> RecentAsync(WheelBrand brand, CancellationToken ct);
 }
 public record TopicSuggestion(Gallery Gallery, string Reason, string? LatestPostUrl);

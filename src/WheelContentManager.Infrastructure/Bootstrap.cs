@@ -15,9 +15,10 @@ public static class Bootstrap
         var builder = Host.CreateApplicationBuilder(args); builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning); builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning); var paths = new AppPaths(dataRoot);
         builder.Services.AddSingleton(paths);
         builder.Services.AddDbContextFactory<ContentDb>(options => options.UseSqlite($"Data Source={paths.Database};Default Timeout=30"));
-        builder.Services.AddSingleton<ISecretStore, DpapiSecretStore>(); builder.Services.AddSingleton<SettingsService>(); builder.Services.AddSingleton<PromptService>(); builder.Services.AddSingleton<ExportService>(); builder.Services.AddSingleton<NotificationService>(); builder.Services.AddSingleton<WindowsScheduler>(); builder.Services.AddSingleton<ContentService>(); builder.Services.AddSingleton<IBlogPublicationChecker, BlogPublicationChecker>();
+        builder.Services.AddSingleton<ISecretStore, DpapiSecretStore>(); builder.Services.AddSingleton<SettingsService>(); builder.Services.AddSingleton<PromptService>(); builder.Services.AddSingleton<ExportService>(); builder.Services.AddSingleton<NotificationService>(); builder.Services.AddSingleton<WindowsScheduler>(); builder.Services.AddSingleton<ContentService>();
         builder.Services.AddHttpClient<OpenAiProvider>(h => h.Timeout = TimeSpan.FromMinutes(5)); builder.Services.AddHttpClient<AnthropicProvider>(h => h.Timeout = TimeSpan.FromMinutes(5));
         builder.Services.AddTransient<IAiProvider>(sp => sp.GetRequiredService<OpenAiProvider>()); builder.Services.AddTransient<IAiProvider>(sp => sp.GetRequiredService<AnthropicProvider>());
+        builder.Services.AddSingleton<IBlogPublicationChecker>(sp => new BlogPublicationChecker(sp.GetRequiredService<SiteClient>(), Path.Combine(paths.Root, "BlogArchiveCache")));
         builder.Services.AddHttpClient<SiteClient>(h => { h.Timeout = TimeSpan.FromSeconds(45); h.DefaultRequestHeaders.UserAgent.ParseAdd("WheelContentManager/1.0"); });
         var profiles = Path.Combine(paths.Root, "Profiles"); Directory.CreateDirectory(profiles);
         var shipped = Path.Combine(AppContext.BaseDirectory, "Profiles");

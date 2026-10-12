@@ -27,14 +27,17 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string prompt = "";
     [ObservableProperty] private GalleryPromptPackage? package;
     public string BrandTitle => SelectedBrand.Name();
+    public string UsageButtonLabel => SelectedGallery?.PromptUsed == true ? "Cofnij oznaczenie wykorzystania" : "Oznacz galerię jako wykorzystaną";
     public string CountLabel => $"{GalleryView.Cast<Gallery>().Count()} dostępnych galerii";
     partial void OnSearchChanged(string value) { GalleryView.Refresh(); OnPropertyChanged(nameof(CountLabel)); }
-    partial void OnSelectedGalleryChanged(Gallery? value) { Prompt = ""; Package = null; }
+    partial void OnSelectedGalleryChanged(Gallery? value) { Prompt = ""; Package = null; OnPropertyChanged(nameof(UsageButtonLabel)); }
     public MainViewModel(IServiceProvider services)
     {
         content = services.GetRequiredService<ContentService>(); paths = services.GetRequiredService<AppPaths>();
         OutputFolder = Path.Combine(paths.Exports, "ChatGPT");
         GalleryView = CollectionViewSource.GetDefaultView(Galleries);
+        GalleryView.SortDescriptions.Add(new(nameof(Gallery.PromptUsed), ListSortDirection.Ascending));
+        GalleryView.SortDescriptions.Add(new(nameof(Gallery.ListingOrder), ListSortDirection.Ascending));
         GalleryView.Filter = item => item is Gallery g && Search.Split(' ', StringSplitOptions.RemoveEmptyEntries).All(word => g.Display.Contains(word, StringComparison.CurrentCultureIgnoreCase));
     }
     private bool needsInitialCheck;
@@ -81,13 +84,25 @@ public partial class MainViewModel : ObservableObject
         Package = await Task.Run(() => content.ExportGalleryPromptFilesAsync(id, OutputFolder, progress, ct), ct);
         Prompt = Package.Prompt;
         Status = Package.Photo == null ? "Plik gotowy. Otwórz folder, wrzuć DOCX do ChatGPT. Zdjęcia pobierzesz z linku galerii." : "Gotowe. Wrzuć DOCX do ChatGPT — polecenie i zdjęcie JPG/PNG są w pliku. Zdjęcie znajdziesz też osobno w folderze.";
-        await LoadSelectedAsync(id); OpenFolder();
+        await LoadSelectedAsync(id, ct); OpenFolder();
     });
-    private async Task LoadSelectedAsync(long id)
+    private async Task LoadSelectedAsync(long id, CancellationToken ct)
     {
-        var rows = await content.GalleriesAsync(); var current = rows.FirstOrDefault(g => g.Id == id);
-        if (current != null) { var previousPrompt = Prompt; var previousPackage = Package; SelectedGallery = current; Prompt = previousPrompt; Package = previousPackage; }
+        var current = await content.GalleryAsync(id, ct);
+        if (current != null)
+        {
+            var previousPrompt = Prompt; var previousPackage = Package;
+            var index = Galleries.ToList().FindIndex(g => g.Id == id); if (index >= 0) Galleries[index] = current;
+            SelectedGallery = current; Prompt = previousPrompt; Package = previousPackage; GalleryView.Refresh();
+        }
     }
+    [RelayCommand] private Task ToggleUsage() => RunAsync(async ct =>
+    {
+        if (SelectedGallery == null) throw new InvalidOperationException("Wybierz galerię z listy.");
+        var id = SelectedGallery.Id; var used = !SelectedGallery.PromptUsed;
+        await content.SetPromptGalleryUsedAsync(id, used, ct); await LoadSelectedAsync(id, ct);
+        Status = used ? "Galeria przekreślona i przeniesiona na koniec listy." : "Cofnięto oznaczenie. Galeria wróciła do niewykorzystanych tematów.";
+    });
     [RelayCommand] private void ChooseFolder()
     {
         var picker = new Microsoft.Win32.OpenFolderDialog { Title = "Folder plików do ChatGPT" };

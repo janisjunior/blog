@@ -13,7 +13,16 @@ try
     await Bootstrap.InitializeAsync(host.Services, cancellation.Token);
     var service = host.Services.GetRequiredService<ContentService>();
     var progress = new Progress<string>(Console.WriteLine);
-    if (args.Contains("--operation-smoke"))
+    if (args.Contains("--prepare-weekly-prompts"))
+    {
+        Console.WriteLine(await host.Services.GetRequiredService<WeeklyPromptService>().TickAsync(DateTimeOffset.UtcNow, progress, cancellation.Token));
+    }
+    else if (Array.IndexOf(args, "--write-prompt-task") is var pi && pi >= 0 && pi + 1 < args.Length)
+    {
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Eksport zadania wymaga Windows.");
+        await File.WriteAllTextAsync(args[pi + 1], WindowsScheduler.PromptTaskXml(Environment.ProcessPath!, System.Security.Principal.WindowsIdentity.GetCurrent().Name), System.Text.Encoding.Unicode, cancellation.Token);
+    }
+    else if (args.Contains("--operation-smoke"))
     {
         using var operation = OperationSession.Start(host.Services.GetRequiredService<AppPaths>(), "Test anulowania bez AI", cancellation.Token);
         operation.Progress(progress).Report("Testowy proces oczekuje na anulowanie.");

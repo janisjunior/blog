@@ -6,6 +6,31 @@ namespace WheelContentManager.Infrastructure;
 
 public sealed class WindowsScheduler(AppPaths paths)
 {
+    public static string PromptTaskXml(string worker, string user)
+    {
+        static string Esc(string value) => SecurityElement.Escape(value)!;
+        return $"""
+        <?xml version="1.0" encoding="UTF-16"?>
+        <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+          <RegistrationInfo><Description>WT - Blog Generator — 3 paczki, wysyłka w piątek 12:00 Europe/Warsaw; kontrola zaległego terminu.</Description></RegistrationInfo>
+          <Triggers><LogonTrigger><Enabled>true</Enabled><UserId>{Esc(user)}</UserId><Delay>PT1M</Delay></LogonTrigger><CalendarTrigger><Repetition><Interval>PT15M</Interval><Duration>P1D</Duration><StopAtDurationEnd>false</StopAtDurationEnd></Repetition><StartBoundary>{DateTime.Today:yyyy-MM-dd}T00:00:00</StartBoundary><Enabled>true</Enabled><ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay></CalendarTrigger></Triggers>
+          <Principals><Principal id="Author"><UserId>{Esc(user)}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
+          <Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries><StopIfGoingOnBatteries>false</StopIfGoingOnBatteries><StartWhenAvailable>true</StartWhenAvailable><ExecutionTimeLimit>PT3H</ExecutionTimeLimit><Enabled>true</Enabled></Settings>
+          <Actions Context="Author"><Exec><Command>{Esc(worker)}</Command><Arguments>--prepare-weekly-prompts</Arguments><WorkingDirectory>{Esc(Path.GetDirectoryName(worker)!)}</WorkingDirectory></Exec></Actions>
+        </Task>
+        """;
+    }
+    public async Task ApplyPromptScheduleAsync(bool enabled, CancellationToken ct = default)
+    {
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Harmonogram wymaga Windows.");
+        var name = "WT-Blog-Prompt-Mail-" + Environment.UserName;
+        if (!enabled) { if (await RunAsync(["/Query", "/TN", name], ct, true) == 0) await RunAsync(["/Change", "/TN", name, "/DISABLE"], ct); return; }
+        var worker = Path.Combine(AppContext.BaseDirectory, "Worker", "WheelContentManager.Worker.exe");
+        if (!File.Exists(worker)) throw new InvalidOperationException("Brak Workera w instalacji.");
+        var file = Path.Combine(paths.Root, "prompt-mail-schedule.xml");
+        await File.WriteAllTextAsync(file, PromptTaskXml(worker, System.Security.Principal.WindowsIdentity.GetCurrent().Name), System.Text.Encoding.Unicode, ct);
+        await RunAsync(["/Create", "/TN", name, "/XML", file, "/F"], ct);
+    }
     public static void ApplyAutoStart(bool enabled, string desktop)
     {
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Autostart wymaga Windows.");

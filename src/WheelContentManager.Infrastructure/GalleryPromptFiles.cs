@@ -61,7 +61,7 @@ public sealed partial class ContentService
         stamp.Json = JsonSerializer.Serialize(checkedAt); await db.SaveChangesAsync(ct);
         return await OrderPromptGalleriesAsync(db, rows.Where(g => !g.BlogBlocked), ct);
     }
-    public async Task<GalleryPromptPackage> ExportGalleryPromptFilesAsync(long galleryId, string output, IProgress<string>? progress, CancellationToken ct)
+    public async Task<GalleryPromptPackage> ExportGalleryPromptFilesAsync(long galleryId, string output, IProgress<string>? progress, CancellationToken ct, bool includePhoto = true)
     {
         using var operation = OperationSession.Start(paths, "Przygotowanie pliku dla ChatGPT", ct); ct = operation.Token; progress = operation.Progress(progress);
         var topic = await BuildChatGptTopicAsync(galleryId, progress, ct, fresh: true, allowLocalArticle: true);
@@ -92,11 +92,14 @@ public sealed partial class ContentService
         string? photo = null;
         try
         {
+            if (includePhoto)
+            {
             progress.Report("Pobieranie zdjęcia do folderu z plikiem…");
             using var photoTimeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             photoTimeout.CancelAfter(TimeSpan.FromSeconds(8));
             var images = await DownloadImagesAsync(gallery, 1, photoTimeout.Token);
             if (images.Count > 0) { photo = Path.Combine(folder, "Zdjecie galerii" + Path.GetExtension(images[0])); File.Copy(images[0], photo, true); }
+            }
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested) { progress.Report("Zdjęcie pobiera się zbyt długo — dokument zachowuje klikalne linki do galerii."); }
         catch (Exception e) when (e is not OperationCanceledException) { await LogAsync("Zdjęcie", SafeError(e), ct: ct); }

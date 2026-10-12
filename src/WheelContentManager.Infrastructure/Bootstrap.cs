@@ -19,6 +19,8 @@ public static class Bootstrap
         builder.Services.AddHttpClient<OpenAiProvider>(h => h.Timeout = TimeSpan.FromMinutes(5)); builder.Services.AddHttpClient<AnthropicProvider>(h => h.Timeout = TimeSpan.FromMinutes(5));
         builder.Services.AddTransient<IAiProvider>(sp => sp.GetRequiredService<OpenAiProvider>()); builder.Services.AddTransient<IAiProvider>(sp => sp.GetRequiredService<AnthropicProvider>());
         builder.Services.AddSingleton<IBlogPublicationChecker>(sp => new BlogPublicationChecker(sp.GetRequiredService<SiteClient>(), Path.Combine(paths.Root, "BlogArchiveCache")));
+        builder.Services.AddSingleton<IWeeklyPromptMailer>(sp => sp.GetRequiredService<NotificationService>());
+        builder.Services.AddSingleton<WeeklyPromptService>();
         builder.Services.AddHttpClient<SiteClient>(h => { h.Timeout = TimeSpan.FromSeconds(45); h.DefaultRequestHeaders.UserAgent.ParseAdd("WheelContentManager/1.0"); });
         var profiles = Path.Combine(paths.Root, "Profiles"); Directory.CreateDirectory(profiles);
         var shipped = Path.Combine(AppContext.BaseDirectory, "Profiles");

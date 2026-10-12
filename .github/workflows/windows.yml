@@ -23,11 +23,11 @@ jobs:
           $smokeRoot = "$env:RUNNER_TEMP/wcm-smoke"
           $worker = Start-Process -FilePath './artifacts/WheelContentManager/Worker/WheelContentManager.Worker.exe' -ArgumentList @('--data-root', $smokeRoot, '--diagnose') -Wait -PassThru
           if ($worker.ExitCode -ne 0 -or !(Test-Path "$smokeRoot/content.db")) { throw 'Worker nie przeszedł diagnostyki.' }
-      - name: Sprawdzenie rejestracji zadania przygotowania w tle
+      - name: Sprawdzenie rejestracji zadania paczek i poczty
         shell: pwsh
         run: |
           $taskFile = "$env:RUNNER_TEMP/wt-background.xml"
-          $process = Start-Process -FilePath './artifacts/WheelContentManager/Worker/WheelContentManager.Worker.exe' -ArgumentList @('--data-root', "$env:RUNNER_TEMP/wcm-smoke", '--write-background-task', $taskFile) -Wait -PassThru
+          $process = Start-Process -FilePath './artifacts/WheelContentManager/Worker/WheelContentManager.Worker.exe' -ArgumentList @('--data-root', "$env:RUNNER_TEMP/wcm-smoke", '--write-prompt-task', $taskFile) -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw 'Nie zapisano definicji zadania.' }
           [xml]$definition = Get-Content $taskFile
           $definition.Task.Settings.Enabled = 'false'

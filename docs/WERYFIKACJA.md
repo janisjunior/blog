@@ -5,7 +5,7 @@
 - Zainstalowano oficjalny SDK .NET 10.0.401; SHA512 archiwum zgadza się z metadanymi wydania Microsoft.
 - `scripts/setup-cloud.sh`: odtwarzanie zależności z lockfile, kompilacja wszystkich siedmiu projektów (również WPF przez EnableWindowsTargeting), testy.
 - Kompilacja: 0 błędów, 0 ostrzeżeń.
-- 145 testów: 145 zaliczone, 0 niezaliczonych, 0 pominiętych. Testy sprawdzają migracje SQLite, deduplikację, korekty, osie i rozmiary, pełne sekcje DOCX, prompty, JSON, intro, jakość, podobieństwo, kontrakty HTTP OpenAI/Anthropic, generowanie PL/EN z mock AI i obrazami, ograniczenia prób/kosztów, brak zużycia galerii w dry-run, historię regenerowania, dokumenty i zdjęcia w DOCX/HTML/TXT/ZIP, XML harmonogramu, blokadę procesów, warunki pełnego powiadomienia oraz jego niepewny stan i ręczne potwierdzenie.
+- 156 testów: 156 zaliczone, 0 niezaliczonych, 0 pominiętych. Testy sprawdzają migracje SQLite, deduplikację, korekty, osie i rozmiary, pełne sekcje DOCX, prompty, JSON, intro, jakość, podobieństwo, kontrakty HTTP OpenAI/Anthropic, generowanie PL/EN z mock AI i obrazami, ograniczenia prób/kosztów, brak zużycia galerii w dry-run, historię regenerowania, dokumenty i zdjęcia w DOCX/HTML/TXT/ZIP, XML harmonogramu, blokadę procesów, warunki pełnego powiadomienia oraz jego niepewny stan i ręczne potwierdzenie.
 - Testy dokumentu: oryginalny DOCX, kompletność wszystkich linii wymagań, dynamiczne dane galerii, brak wycieku konfiguracji przykładowych, gotowe szablony przy instalacji, idempotentny import, rozpoznawanie treści po SHA256 oraz aktualizacja bez nadpisania edycji użytkownika.
 - Testy /blog: wszystkie trzy rzeczywiste struktury HTML, paginacja, wspólne zdjęcia, możliwy duplikat, pomijanie nawigacji i polecanych wpisów, błąd sieci i brak kosztu AI przy blokadzie. Test pełnego klienta HTTP wykrywa wpis z drugiej strony i sprawdza, że niepełny skan nie trafia do cache.
 - Testy na lokalnych fragmentach rzeczywistego HTML wszystkich trzech marek. Oddzielna syntetyczna próbka nie jest przedstawiana jako źródło produkcyjne.
@@ -91,3 +91,11 @@ GUI ma tylko wybór marki, wyszukiwanie galerii, podgląd i linki oraz eksport p
 - Dystrybucja na Windows wymaga przejścia skanu Defender; raport i sumy SHA256 są dołączane do paczki. Brak podpisu cyfrowego pozostaje ograniczeniem i nie zaleca się obchodzenia blokad przeglądarki.
 
 - Dodatkowa weryfikacja 0.6.1: oznaczenie wykorzystania jest przechowywane oddzielnie od statusu dawnych artykułów, zachowuje widoczność galerii, umieszcza ją na końcu po odświeżeniu i pozwala cofnąć oznaczenie. Udany eksport zapisuje oznaczenie. Test DOCX/TXT potwierdza źródłowy URL na początku i polecenie kolejności EN, następnie PL. Przekreślenie i reakcja wyboru wiersza wymagają ręcznej kontroli WPF na Windows.
+
+## Paczki tygodniowe i poczta — 0.7.0
+
+- Przetestowano piątek 12:00 Europe/Warsaw w czasie letnim i zimowym, przygotowanie jednej paczki na markę bez AI i zdjęć, odtworzenie po restarcie, nadrobienie terminu, blokadę niepełnego zestawu i tematu opublikowanego po przygotowaniu, kontrolę po 6 godzinach, brak automatycznego duplikatu przy niepewnym wyniku SMTP oraz ograniczone ponawianie pewnego braku wysyłki.
+- Ranking pomija wykorzystane galerie oraz model ostatniego wpisu i poprzedniej paczki danej marki. Pełne szczegóły galerii muszą potwierdzić wybrany model. Przed mailem sprawdzane są również najnowsze modele na stronie.
+- Nowe zadanie Windows wykonuje tylko --prepare-weekly-prompts, obsługuje StartWhenAvailable i nie uruchamia API. CI sprawdza rzeczywistą rejestrację nowego XML jako wyłączonego zadania, bez wysyłania poczty.
+- SMTP i hasło są konfigurowane w osobnym oknie; TLS pozostaje wymagany, hasło jest zapisane przez DPAPI. Nie ma danych użytkownika ani hasła w kodzie i paczce wydania.
+- Testy poczty korzystają z mocka nadawcy. Nie wysłano rzeczywistego maila i nie potwierdzono obsługi SMTP skrzynki użytkownika. Ręczne sprawdzenie WPF, zasobnika, autostartu po logowaniu, instalacji protokołu wtblog i dostarczenia maila na komputerze użytkownika pozostaje wymagane.

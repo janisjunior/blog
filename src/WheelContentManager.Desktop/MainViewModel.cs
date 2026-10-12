@@ -13,10 +13,20 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly ContentService content;
     private readonly AppPaths paths;
+    private readonly IServiceProvider services;
     private CancellationTokenSource? work;
     public ObservableCollection<Gallery> Galleries { get; } = [];
     public ICollectionView GalleryView { get; }
     public WheelBrand[] Brands { get; } = Enum.GetValues<WheelBrand>();
+    public ObservableCollection<WeeklyPromptItem> WeeklyItems { get; } = [];
+    [ObservableProperty] private string weeklyStatus = "Paczki tygodniowe: trwa sprawdzanie.";
+    [ObservableProperty] private string weeklyBatchLabel = "Paczki tygodniowe — piątek 12:00 (Polska)";
+    [ObservableProperty] private bool backgroundBusy;
+    public bool CanCancel => Busy || BackgroundBusy;
+    partial void OnBusyChanged(bool value) => OnPropertyChanged(nameof(CanCancel));
+    partial void OnBackgroundBusyChanged(bool value) => OnPropertyChanged(nameof(CanCancel));
+    public event Action? CancelBackgroundRequested;
+    public event Action? ResumeBackgroundRequested;
     [ObservableProperty] private WheelBrand selectedBrand;
     [ObservableProperty] private Gallery? selectedGallery;
     [ObservableProperty] private string search = "";
@@ -33,6 +43,7 @@ public partial class MainViewModel : ObservableObject
     partial void OnSelectedGalleryChanged(Gallery? value) { Prompt = ""; Package = null; OnPropertyChanged(nameof(UsageButtonLabel)); }
     public MainViewModel(IServiceProvider services)
     {
+        this.services = services;
         content = services.GetRequiredService<ContentService>(); paths = services.GetRequiredService<AppPaths>();
         OutputFolder = Path.Combine(paths.Exports, "ChatGPT");
         GalleryView = CollectionViewSource.GetDefaultView(Galleries);
@@ -40,6 +51,26 @@ public partial class MainViewModel : ObservableObject
         GalleryView.SortDescriptions.Add(new(nameof(Gallery.ListingOrder), ListSortDirection.Ascending));
         GalleryView.Filter = item => item is Gallery g && Search.Split(' ', StringSplitOptions.RemoveEmptyEntries).All(word => g.Display.Contains(word, StringComparison.CurrentCultureIgnoreCase));
     }
+    public async Task LoadWeeklyAsync()
+    {
+        var batches = await services.GetRequiredService<WeeklyPromptService>().BatchesAsync();
+        var batch = batches.FirstOrDefault(b => b.Items.Count == 3 && b.Items.All(i => i.Package != null)) ?? batches.FirstOrDefault();
+        WeeklyBatchLabel = batch == null ? "Paczki tygodniowe — piątek 12:00 (Polska)" : "Paczki na " + batch.Key + " — piątek 12:00 (Polska)";
+        WeeklyItems.Clear(); if (batch != null) foreach (var item in batch.Items.Where(i => i.Package != null)) WeeklyItems.Add(item);
+        var cached = await content.CachedPromptGalleriesAsync(SelectedBrand);
+        if (Galleries.Count == 0) { SetList(cached.Galleries); return; }
+        var selectedId = SelectedGallery?.Id; var previousPrompt = Prompt; var previousPackage = Package;
+        foreach (var g in cached.Galleries)
+        {
+            var index = Galleries.ToList().FindIndex(old => old.Id == g.Id);
+            if (index >= 0 && Galleries[index].PromptUsed != g.PromptUsed) Galleries[index] = g;
+        }
+        SelectedGallery = Galleries.FirstOrDefault(g => g.Id == selectedId); Prompt = previousPrompt; Package = previousPackage;
+    }
+    [RelayCommand] private void ConfigureMail() => new MailSettingsWindow(services) { Owner = System.Windows.Application.Current.MainWindow }.ShowDialog();
+    [RelayCommand] private void OpenWeeklyPackage(string folder) => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(folder) { UseShellExecute = true });
+    [RelayCommand] private void OpenWeeklyGallery(string url) => OpenUrl(url);
+    [RelayCommand] private void ResumeBackground() { OperationSession.Resume(paths); ResumeBackgroundRequested?.Invoke(); WeeklyStatus = "Wznowiono przygotowanie paczek w tle."; }
     private bool needsInitialCheck;
     public Task InitialCheckAsync() => needsInitialCheck ? RefreshCommand.ExecuteAsync(null) : Task.CompletedTask;
     public Task InitializeAsync() => LoadCachedAsync();
@@ -120,6 +151,6 @@ public partial class MainViewModel : ObservableObject
     {
         if (Uri.TryCreate(value, UriKind.Absolute, out var url) && url.Scheme == "https") System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url.AbsoluteUri) { UseShellExecute = true });
     }
-    [RelayCommand] private void Cancel() { work?.Cancel(); OperationSession.RequestCancellation(paths); Status = "Anulowanie…"; }
+    [RelayCommand] private void Cancel() { work?.Cancel(); CancelBackgroundRequested?.Invoke(); OperationSession.RequestCancellation(paths); Status = "Anulowanie…"; }
     public void StopUpdates() => work?.Cancel();
 }

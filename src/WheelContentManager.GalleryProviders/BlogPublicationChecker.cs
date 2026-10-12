@@ -15,6 +15,7 @@ public sealed class BlogPublicationChecker(SiteClient client, string? archiveCac
     private readonly Dictionary<WheelBrand, (DateTimeOffset Time, IReadOnlyList<PublishedPost> Posts)> cache = [];
     private readonly Dictionary<string, (DateTimeOffset Time, BlogCheck Result)> confirmed = [];
     private readonly Dictionary<WheelBrand, (DateTimeOffset Time, IReadOnlyList<RecentBlogPost> Posts)> recent = [];
+    public Task<IReadOnlyList<RecentBlogPost>> RecentFreshAsync(WheelBrand brand, CancellationToken ct) { recent.Remove(brand); return RecentAsync(brand, ct); }
     public async Task<IReadOnlyList<RecentBlogPost>> RecentAsync(WheelBrand brand, CancellationToken ct)
     {
         if (recent.TryGetValue(brand, out var snapshot) && DateTimeOffset.UtcNow - snapshot.Time < TimeSpan.FromMinutes(15)) return snapshot.Posts;

@@ -1,5 +1,5 @@
 #define AppName "WT - Blog Generator"
-#define AppVersion "0.6.1"
+#define AppVersion "0.7.0"
 [Setup]
 AppId={{F33F7BB7-0279-493A-950B-95471820CD71}
 AppName={#AppName}
@@ -23,7 +23,10 @@ Source: "..\artifacts\WheelContentManager\*"; DestDir: "{app}"; Flags: ignorever
 Type: files; Name: "{userprograms}\Wheel Content Manager.lnk"
 Type: files; Name: "{userdesktop}\Wheel Content Manager.lnk"
 [Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "WT-Blog-Generator"; Flags: deletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "WT-Blog-Generator"; ValueData: """{app}\WheelContentManager.Desktop.exe"" --background"; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Classes\wtblog"; ValueType: string; ValueData: "URL:WT Blog Generator"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\wtblog"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+Root: HKCU; Subkey: "Software\Classes\wtblog\shell\open\command"; ValueType: string; ValueData: """{app}\WheelContentManager.Desktop.exe"" --weekly-packages ""%1"""
 [Icons]
 Name: "{userprograms}\WT - Blog Generator"; Filename: "{app}\WheelContentManager.Desktop.exe"
 Name: "{userdesktop}\WT - Blog Generator"; Filename: "{app}\WheelContentManager.Desktop.exe"; Tasks: desktopicon

@@ -85,6 +85,10 @@ public class ErrorLog { public long Id { get; set; } public DateTimeOffset Creat
 public sealed record ChatGptTopic(long GalleryId, WheelBrand Brand, string Display, string Prompt, long PromptVersionId, DateTimeOffset Created);
 public class AppSettings
 {
+    public bool PromptAutomationConfigured { get; set; }
+    public bool WeeklyPromptsEnabled { get; set; } = true;
+    public bool WeeklyPromptMailEnabled { get; set; }
+    public DateTimeOffset? WeeklyPromptEnabledAt { get; set; }
     public bool UseChatGpt { get; set; } = true;
     public string AiProvider { get; set; } = "OpenAI"; public string AiModel { get; set; } = "";
     public const int ReferenceMinWords = 2200, ReferenceMaxWords = 2600;
@@ -209,6 +213,7 @@ public interface IBlogPublicationChecker
     Task<BlogCheck> CheckFreshAsync(Gallery gallery, CancellationToken ct) => CheckAsync(gallery, ct);
     Task<BlogCheck> CheckForExportAsync(Gallery gallery, CancellationToken ct) => CheckFreshAsync(gallery, ct);
     Task<IReadOnlyList<RecentBlogPost>> RecentAsync(WheelBrand brand, CancellationToken ct);
+    Task<IReadOnlyList<RecentBlogPost>> RecentFreshAsync(WheelBrand brand, CancellationToken ct) => RecentAsync(brand, ct);
 }
 public record TopicSuggestion(Gallery Gallery, string Reason, string? LatestPostUrl);
 

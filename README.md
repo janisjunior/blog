@@ -1,6 +1,6 @@
-# WT - Blog Generator 0.6.1
+# WT - Blog Generator 0.7.0
 
-Program do wybierania galerii JR Wheels, Concaver Wheels i Vesser Forged oraz przygotowywania kompletnych plików do własnego czatu ChatGPT. Jasny panel: wybór marki, lista galerii, podgląd zdjęcia i zapis pliku. Bez importowania odpowiedzi, zatwierdzania artykułów, API, SMTP i automatycznego generowania tekstów.
+Program do wybierania galerii JR Wheels, Concaver Wheels i Vesser Forged oraz przygotowywania kompletnych plików do własnego czatu ChatGPT. Jasny panel: wybór marki, lista galerii, podgląd zdjęcia i zapis pliku. Bez importowania odpowiedzi, zatwierdzania artykułów i płatnego API. Może przygotować cotygodniowe paczki w tle i wysłać je przez Twoją pocztę SMTP.
 
 ## Jak używać
 
@@ -24,13 +24,28 @@ Pobieranie opcjonalnego zdjęcia ma limit 8 sekund. Jeśli zdjęcie nie zdąży 
 
 Potwierdzone i możliwe duplikaty oraz nieudane sprawdzenie archiwum blokują zapis pliku. Aktualna karta modelu musi pasować do wybranej konfiguracji. Pierwsze sprawdzanie stron może trwać kilka minut; przycisk **Anuluj** przerywa operację. Program respektuje robots.txt i limity żądań.
 
+## Paczki tygodniowe i poczta
+
+Program przygotowuje wcześniej **3 paczki — jedną JR, jedną Concaver, jedną Vesser**. Są widoczne u góry w sekcji **Paczki na [data]**. Każda zawiera DOCX i TXT z pełnym poleceniem EN → PL, potwierdzonymi danymi, kartą modelu i linkami do zdjęć galerii. W paczkach automatycznych zdjęcia nie są pobierane ani osadzane, żeby mail był mały; ręczne przygotowanie pliku nadal może dołączyć zdjęcie. Paczka nie jest gotowym tekstem artykułu: dokument wrzucasz do własnego ChatGPT.
+
+1. Otwórz **Poczta / harmonogram**.
+2. Podaj serwer SMTP dostawcy, port 587 / STARTTLS albo 465 / SSL/TLS, nadawcę, odbiorcę, login i hasło SMTP / hasło aplikacji. Nie zapisuj hasła w repozytorium ani nie podawaj go w czacie. Puste pole hasła zachowuje wcześniej zapisane hasło. Konto musi obsługiwać uwierzytelnienie SMTP dostępne przez login i hasło aplikacji; niektóre konta Microsoft 365 wymagają OAuth lub zmian administracyjnych i nie zadziałają z tym sposobem logowania.
+3. Włącz wysyłkę w piątki, zapisz ustawienia i kliknij **Wyślij wiadomość testową**. Sprawdź skrzynkę oraz spam.
+4. Zostaw włączone przygotowanie w tle i autostart. Program uruchamia się po zalogowaniu do Windows. Przycisk zamknięcia okna pozostawia go w zasobniku; **Anuluj** wstrzymuje przygotowanie, **Wznów** je odblokowuje.
+
+Termin wysyłki to **piątek 12:00 Europe/Warsaw**, również po zmianie czasu letniego i zimowego. Paczki powstają wcześniej, a przed terminem są odświeżane. W tle ich dostępność i ostatnie modele na blogach są kontrolowane co 6 godzin. W momencie wysyłki program ponownie sprawdza aktualne listy blogów i ostatnie wpisy. Wolne źródła lub niekompletny zestaw mogą opóźnić mail; program nie wysyła pozornego potwierdzenia ukończenia ani dwóch paczek zamiast trzech. Wybór pomija wykorzystane galerie, ostatni model z bloga danej marki i model z jej poprzedniej paczki. Jeśli nie ma odpowiedniego innego modelu, status wyjaśnia brak zestawu.
+
+Komputer musi być włączony, użytkownik zalogowany i internet dostępny. Pominięty termin zostaje nadrobiony po uruchomieniu; aplikacja na komputerze nie wysyła maili, gdy komputer jest wyłączony. Windows ma również zadanie kontrolne co 15 minut i po zalogowaniu; właściwy termin i strefę wyznacza program. Aplikacja sprawdza termin co 30 sekund. Błędy przygotowania są ponawiane po 15 minutach albo po użyciu **Wznów**.
+
+Mail zawiera jeden ZIP z trzema folderami oraz link `wtblog://weekly/[data]` do otwarcia zainstalowanej aplikacji. Część klientów pocztowych nie obsługuje takich linków; wtedy użyj załącznika lub otwórz program ze skrótu. Program zapisuje stan wysyłki. Utrata odpowiedzi SMTP nie powoduje automatycznej ponownej wysyłki: sprawdź skrzynkę i w ustawieniach poczty potwierdź odbiór albo świadomie zleć ponowienie.
+
 ## Pobieranie i aktualizacja
 
 Na GitHubie otwórz najnowsze udane uruchomienie workflow Windows i pobierz **Artifacts → WT-Blog-Generator-Windows**. Rozpakuj ZIP i uruchom **WT-Blog-Generator-Setup.exe**. Przed aktualizacją zakończ starszą wersję programu i jej zadania w tle; po instalacji uruchom komputer ponownie.
 
 Przed udostępnieniem nowej paczki workflow aktualizuje sygnatury Microsoft Defender i skanuje aplikację, instalator oraz ZIP. Niedostępny skaner, błąd skanu lub wykrycie zagrożenia blokują udostępnienie paczki. `Security-report.txt` zawiera wynik skanu i stan podpisów cyfrowych, a `SHA256SUMS.txt` sumy kontrolne instalatora i przenośnego ZIP. Skan nie gwarantuje bezpieczeństwa ani braku ostrzeżeń Chrome; pliki wykonywalne obecnie nie mają podpisu cyfrowego. Jeżeli przeglądarka lub antywirus blokuje pobranie jako niebezpieczne, nie omijaj blokady i nie wyłączaj ochrony.
 
-Dane starszej wersji w `%LOCALAPPDATA%\WheelContentManager` pozostają zachowane. Nowy interfejs nie wykorzystuje statusu lokalnego artykułu do blokowania galerii. Usuwany jest dawny autostart, stare zadania są wyłączane, a Worker nie wykonuje automatycznego generowania ani testów AI. Zamknięcie okna kończy program; nie pozostaje ikona zasobnika ani generator w tle. Zapisane sekrety nie są kasowane, lecz nowy panel ich nie używa.
+Dane starszej wersji w `%LOCALAPPDATA%\WheelContentManager` pozostają zachowane. Nowy interfejs nie wykorzystuje statusu lokalnego artykułu do blokowania galerii. Stare zadania generowania przez API są wyłączane. Nowy autostart uruchamia program w zasobniku Windows, a nowy Worker przygotowuje wyłącznie paczki z poleceniami. Zamknięcie okna chowa program do zasobnika. Menu ikony pozwala otworzyć program, wznowić przygotowanie albo wstrzymać je i zakończyć aplikację. Zapisane sekrety poczty pozostają zaszyfrowane przez DPAPI dla tego samego konta Windows.
 
 ## Rozwój i sprawdzenie
 

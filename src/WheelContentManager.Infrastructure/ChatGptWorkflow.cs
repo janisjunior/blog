@@ -115,6 +115,8 @@ public sealed partial class ContentService
         var row = await db.ApplicationSettings.FindAsync([TopicPrefix + galleryId], ct) ?? throw new InvalidOperationException("Najpierw przygotuj polecenie dla tej galerii.");
         var topic = JsonSerializer.Deserialize<ChatGptTopic>(row.Json)!;
         var gallery = await db.FullGalleries.SingleAsync(g => g.Id == galleryId, ct);
+        if (texts.Any(text => !text.Sources.Any(url => Normalization.Url(url) == Normalization.Url(gallery.Url))))
+            throw new InvalidOperationException("Odpowiedź nie zawiera źródła wybranej galerii. Wybierz właściwy temat lub poproś ChatGPT o odpowiedź z URL galerii w sources dla obu języków.");
         if (gallery.Used || await db.Articles.AnyAsync(a => a.GalleryId == galleryId, ct)) throw new InvalidOperationException("Ta galeria ma już artykuł w programie.");
         var check = await CheckBlogAsync(galleryId, ct);
         if (check.Published || check.PossibleDuplicate) throw new InvalidOperationException("Wpis pojawił się na /blog — import zablokowany: " + check.Url);

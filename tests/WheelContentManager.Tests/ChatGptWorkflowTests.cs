@@ -68,6 +68,15 @@ public class ChatGptWorkflowTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => env.Content.GenerateAsync(gallery.Id, false, false, null, null, default));
         Assert.Empty(await env.Content.ArticlesAsync()); Assert.Empty(env.Ai.Calls);
     }
+    [Fact] public async Task WrongGalleryResponseCannotConsumeTopicOrSaveArticle()
+    {
+        await using var env = await TestEnvironment.CreateAsync(); await ManualAsync(env); await env.Content.PrepareReadySetAsync(null, default);
+        var topics = await env.Content.ChatGptTopicsAsync(); var galleries = await env.Content.GalleriesAsync();
+        var wrongGallery = galleries.Single(g => g.Id == topics[1].GalleryId);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => env.Content.ImportChatGptResponseAsync(topics[0].GalleryId, Response(wrongGallery), default));
+        Assert.Empty(await env.Content.ArticlesAsync()); Assert.Equal(3, (await env.Content.ChatGptTopicsAsync()).Count);
+        Assert.False((await env.Content.GalleriesAsync()).Single(g => g.Id == topics[0].GalleryId).Used); Assert.Empty(env.Ai.Calls);
+    }
     [Theory][InlineData("{}")] [InlineData("[]")] [InlineData("{\"articles\":[]}")] [InlineData("not json")]
     public void InvalidOrIncompleteResponseIsRejected(string response) => Assert.ThrowsAny<Exception>(() => ContentService.ParseChatGptResponse(response));
     [Fact] public void ExistingSettingsWithoutModeDefaultToChatGpt() => Assert.True(JsonSerializer.Deserialize<AppSettings>("{\"AiModel\":\"old-model\"}")!.UseChatGpt);

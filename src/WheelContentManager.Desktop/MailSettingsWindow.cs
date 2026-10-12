@@ -40,6 +40,20 @@ public sealed class MailSettingsWindow : Window
         panel.Children.Add(new TextBlock { Text = "Hasło zostaje zaszyfrowane przez Windows dla Twojego konta. Gmail i część innych dostawców wymaga hasła aplikacji. Microsoft 365 może wymagać włączenia SMTP AUTH przez administratora.", TextWrapping = TextWrapping.Wrap, Margin = new(0, 8, 0, 12) });
         panel.Children.Add(background); panel.Children.Add(mail); panel.Children.Add(autoStart);
         var buttons = new WrapPanel(); panel.Children.Add(buttons);
+        var import = new Button { Content = "Wczytaj gotowe ustawienia z pliku" };
+        import.Click += async (_, _) =>
+        {
+            var picker = new Microsoft.Win32.OpenFileDialog { Title = "Gotowe ustawienia poczty", Filter = "Ustawienia poczty JSON|*.json" };
+            if (picker.ShowDialog(this) != true) return;
+            await ExecuteAsync(async () =>
+            {
+                var preset = await MailSettingsPreset.LoadAsync(picker.FileName);
+                fields["host"].Text = preset.SmtpHost; fields["port"].Text = preset.SmtpPort.ToString(); fields["user"].Text = preset.SmtpUser;
+                fields["from"].Text = preset.MailFrom; fields["to"].Text = preset.MailTo; security.SelectedItem = preset.SmtpSecurity;
+                mail.IsChecked = preset.WeeklyPromptMailEnabled; background.IsChecked = preset.WeeklyPromptsEnabled; autoStart.IsChecked = preset.StartWithWindows;
+                password.Clear(); status.Text = "Wszystkie ustawienia zostały uzupełnione. Wpisz hasło do skrzynki, zapisz i wyślij wiadomość testową.";
+            });
+        }; buttons.Children.Add(import);
         var save = new Button { Content = "Zapisz ustawienia" }; save.Click += async (_, _) => await ExecuteAsync(SaveAsync); buttons.Children.Add(save);
         var test = new Button { Content = "Wyślij wiadomość testową" }; test.Click += async (_, _) => await ExecuteAsync(async () => { await SaveAsync(); await services.GetRequiredService<NotificationService>().TestAsync(); status.Text = "Wiadomość testowa wysłana. Sprawdź skrzynkę i spam."; }); buttons.Children.Add(test);
         panel.Children.Add(status); panel.Children.Add(history);

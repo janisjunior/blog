@@ -5,7 +5,7 @@
 - Zainstalowano oficjalny SDK .NET 10.0.401; SHA512 archiwum zgadza się z metadanymi wydania Microsoft.
 - `scripts/setup-cloud.sh`: odtwarzanie zależności z lockfile, kompilacja wszystkich siedmiu projektów (również WPF przez EnableWindowsTargeting), testy.
 - Kompilacja: 0 błędów, 0 ostrzeżeń.
-- 156 testów: 156 zaliczone, 0 niezaliczonych, 0 pominiętych. Testy sprawdzają migracje SQLite, deduplikację, korekty, osie i rozmiary, pełne sekcje DOCX, prompty, JSON, intro, jakość, podobieństwo, kontrakty HTTP OpenAI/Anthropic, generowanie PL/EN z mock AI i obrazami, ograniczenia prób/kosztów, brak zużycia galerii w dry-run, historię regenerowania, dokumenty i zdjęcia w DOCX/HTML/TXT/ZIP, XML harmonogramu, blokadę procesów, warunki pełnego powiadomienia oraz jego niepewny stan i ręczne potwierdzenie.
+- 160 testów: 160 zaliczone, 0 niezaliczonych, 0 pominiętych. Testy sprawdzają migracje SQLite, deduplikację, korekty, osie i rozmiary, pełne sekcje DOCX, prompty, JSON, intro, jakość, podobieństwo, kontrakty HTTP OpenAI/Anthropic, generowanie PL/EN z mock AI i obrazami, ograniczenia prób/kosztów, brak zużycia galerii w dry-run, historię regenerowania, dokumenty i zdjęcia w DOCX/HTML/TXT/ZIP, XML harmonogramu, blokadę procesów, warunki pełnego powiadomienia oraz jego niepewny stan i ręczne potwierdzenie.
 - Testy dokumentu: oryginalny DOCX, kompletność wszystkich linii wymagań, dynamiczne dane galerii, brak wycieku konfiguracji przykładowych, gotowe szablony przy instalacji, idempotentny import, rozpoznawanie treści po SHA256 oraz aktualizacja bez nadpisania edycji użytkownika.
 - Testy /blog: wszystkie trzy rzeczywiste struktury HTML, paginacja, wspólne zdjęcia, możliwy duplikat, pomijanie nawigacji i polecanych wpisów, błąd sieci i brak kosztu AI przy blokadzie. Test pełnego klienta HTTP wykrywa wpis z drugiej strony i sprawdza, że niepełny skan nie trafia do cache.
 - Testy na lokalnych fragmentach rzeczywistego HTML wszystkich trzech marek. Oddzielna syntetyczna próbka nie jest przedstawiana jako źródło produkcyjne.
@@ -99,3 +99,9 @@ GUI ma tylko wybór marki, wyszukiwanie galerii, podgląd i linki oraz eksport p
 - Nowe zadanie Windows wykonuje tylko --prepare-weekly-prompts, obsługuje StartWhenAvailable i nie uruchamia API. CI sprawdza rzeczywistą rejestrację nowego XML jako wyłączonego zadania, bez wysyłania poczty.
 - SMTP i hasło są konfigurowane w osobnym oknie; TLS pozostaje wymagany, hasło jest zapisane przez DPAPI. Nie ma danych użytkownika ani hasła w kodzie i paczce wydania.
 - Testy poczty korzystają z mocka nadawcy. Nie wysłano rzeczywistego maila i nie potwierdzono obsługi SMTP skrzynki użytkownika. Ręczne sprawdzenie WPF, zasobnika, autostartu po logowaniu, instalacji protokołu wtblog i dostarczenia maila na komputerze użytkownika pozostaje wymagane.
+
+## Import ustawień poczty — 0.7.1
+
+- Plik JSON wypełnia SMTP, TLS, login, adresy i przełączniki poczty, tła oraz autostartu. Wczytanie nie zapisuje ustawień ani nie wysyła maila; użytkownik wpisuje lokalne hasło i zapisuje konfigurację.
+- Testy potwierdzają import kompletnego profilu, odrzucenie hasła / dodatkowych pól, nieszyfrowanego połączenia i adresu z protokołem zamiast nazwy hosta.
+- Prywatny profil użytkownika pozostaje poza repozytorium i artefaktem instalatora. Nie sprawdzono rzeczywistego połączenia SMTP użytkownika.

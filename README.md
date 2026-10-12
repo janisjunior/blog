@@ -1,4 +1,4 @@
-# WT - Blog Generator 0.7.0
+# WT - Blog Generator 0.7.1
 
 Program do wybierania galerii JR Wheels, Concaver Wheels i Vesser Forged oraz przygotowywania kompletnych plików do własnego czatu ChatGPT. Jasny panel: wybór marki, lista galerii, podgląd zdjęcia i zapis pliku. Bez importowania odpowiedzi, zatwierdzania artykułów i płatnego API. Może przygotować cotygodniowe paczki w tle i wysłać je przez Twoją pocztę SMTP.
 
@@ -29,7 +29,7 @@ Potwierdzone i możliwe duplikaty oraz nieudane sprawdzenie archiwum blokują za
 Program przygotowuje wcześniej **3 paczki — jedną JR, jedną Concaver, jedną Vesser**. Są widoczne u góry w sekcji **Paczki na [data]**. Każda zawiera DOCX i TXT z pełnym poleceniem EN → PL, potwierdzonymi danymi, kartą modelu i linkami do zdjęć galerii. W paczkach automatycznych zdjęcia nie są pobierane ani osadzane, żeby mail był mały; ręczne przygotowanie pliku nadal może dołączyć zdjęcie. Paczka nie jest gotowym tekstem artykułu: dokument wrzucasz do własnego ChatGPT.
 
 1. Otwórz **Poczta / harmonogram**.
-2. Podaj serwer SMTP dostawcy, port 587 / STARTTLS albo 465 / SSL/TLS, nadawcę, odbiorcę, login i hasło SMTP / hasło aplikacji. Nie zapisuj hasła w repozytorium ani nie podawaj go w czacie. Puste pole hasła zachowuje wcześniej zapisane hasło. Konto musi obsługiwać uwierzytelnienie SMTP dostępne przez login i hasło aplikacji; niektóre konta Microsoft 365 wymagają OAuth lub zmian administracyjnych i nie zadziałają z tym sposobem logowania.
+2. Jeśli masz przygotowany plik JSON, kliknij **Wczytaj gotowe ustawienia z pliku**: serwer, port, TLS, adresy i trzy przełączniki zostaną uzupełnione. Hasło wpisz w PasswordBox i zapisz. Plik nie zawiera hasła, a import odrzuca dodatkowe pola i nie nadpisuje innych ustawień aplikacji. Możesz też podać serwer SMTP dostawcy, port 587 / STARTTLS albo 465 / SSL/TLS, nadawcę, odbiorcę, login i hasło SMTP / hasło aplikacji. Nie zapisuj hasła w repozytorium ani nie podawaj go w czacie. Puste pole hasła zachowuje wcześniej zapisane hasło. Konto musi obsługiwać uwierzytelnienie SMTP dostępne przez login i hasło aplikacji; niektóre konta Microsoft 365 wymagają OAuth lub zmian administracyjnych i nie zadziałają z tym sposobem logowania.
 3. Włącz wysyłkę w piątki, zapisz ustawienia i kliknij **Wyślij wiadomość testową**. Sprawdź skrzynkę oraz spam.
 4. Zostaw włączone przygotowanie w tle i autostart. Program uruchamia się po zalogowaniu do Windows. Przycisk zamknięcia okna pozostawia go w zasobniku; **Anuluj** wstrzymuje przygotowanie, **Wznów** je odblokowuje.
 

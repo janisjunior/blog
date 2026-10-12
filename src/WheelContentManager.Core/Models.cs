@@ -81,8 +81,10 @@ public class AutomationRun { public string Id { get; set; } = Guid.NewGuid().ToS
 public class NotificationHistory { public long Id { get; set; } public string RunId { get; set; } = ""; public string State { get; set; } = "Pending"; public string MessageId { get; set; } = ""; public DateTimeOffset? SentAt { get; set; } }
 public class ApplicationSetting { public string Key { get; set; } = ""; public string Json { get; set; } = "{}"; }
 public class ErrorLog { public long Id { get; set; } public DateTimeOffset Created { get; set; } = DateTimeOffset.UtcNow; public string Level { get; set; } = "Informacja"; public string Operation { get; set; } = ""; public string Message { get; set; } = ""; }
+public sealed record ChatGptTopic(long GalleryId, WheelBrand Brand, string Display, string Prompt, long PromptVersionId, DateTimeOffset Created);
 public class AppSettings
 {
+    public bool UseChatGpt { get; set; } = true;
     public string AiProvider { get; set; } = "OpenAI"; public string AiModel { get; set; } = "";
     public const int ReferenceMinWords = 2200, ReferenceMaxWords = 2600;
     public int EditorialPolicyVersion { get; set; } = 1;

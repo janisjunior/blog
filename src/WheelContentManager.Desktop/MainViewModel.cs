@@ -23,6 +23,10 @@ public partial class MainViewModel : ObservableObject
     private bool preparedInitialized;
     private readonly System.Windows.Threading.DispatcherTimer preparationTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     private bool pollingPreparation;
+    public ObservableCollection<ChatGptTopic> ChatGptTopics { get; } = [];
+    [ObservableProperty] private ChatGptTopic? selectedChatGptTopic;
+    [ObservableProperty] private string chatGptResponse = "";
+    public bool UseChatGpt { get => Settings.UseChatGpt; set { Settings.UseChatGpt = value; OnPropertyChanged(); } }
     public ObservableCollection<Article> PreparedArticles { get; } = [];
     [ObservableProperty] private Article? selectedPreparedArticle;
     [ObservableProperty] private string preparationStatus = "Sprawdzanie gotowych artykułów…";
@@ -31,7 +35,7 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<Gallery> Galleries { get; } = []; public ObservableCollection<Article> Articles { get; } = []; public ObservableCollection<ErrorLog> Logs { get; } = []; public ObservableCollection<AutomationRun> Runs { get; } = []; public ObservableCollection<PromptVersion> PromptHistory { get; } = []; public ObservableCollection<string> Models { get; } = []; public ObservableCollection<NotificationHistory> Notifications { get; } = [];
     [ObservableProperty] private NotificationHistory? selectedNotification;
     public ICollectionView GalleryView { get; } public ICollectionView ArticleView { get; }
-    public string[] Navigation { get; } = ["Pulpit", "Galerie", "Artykuły", "Prompty AI", "Harmonogram", "Ustawienia", "Historia i błędy"];
+    public string[] Navigation { get; } = ["Pulpit", "Galerie", "Artykuły", "Prompty AI", "Harmonogram", "Ustawienia", "Historia i błędy", "ChatGPT"];
     public string[] BrandFilters { get; } = ["Wszystkie marki", "JR Wheels", "Concaver Wheels", "Vesser Forged"]; public WheelBrand[] Brands { get; } = Enum.GetValues<WheelBrand>();
     public string[] SelectionModes { get; } = ["Najnowsze niewykorzystane", "Ręczny"];
     public IEnumerable<Gallery> JrCandidates => Galleries.Where(x => x.Brand == WheelBrand.JR && !x.Used);
@@ -43,7 +47,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private int selectedTab;
     [ObservableProperty] private int scheduleDayIndex = 1;
     partial void OnScheduleDayIndexChanged(int value) { if (value is >= 0 and <= 6) Settings.ScheduleDay = (DayOfWeek)value; }
-    partial void OnSettingsChanged(AppSettings value) => ScheduleDayIndex = (int)value.ScheduleDay;
+    partial void OnSettingsChanged(AppSettings value) { ScheduleDayIndex = (int)value.ScheduleDay; OnPropertyChanged(nameof(UseChatGpt)); }
     [ObservableProperty] private AppSettings settings = new();
     [ObservableProperty] private bool busy;
     [ObservableProperty] private string status = "Gotowy do pracy";
@@ -121,6 +125,10 @@ public partial class MainViewModel : ObservableObject
     private async Task UpdatePreparedAsync()
     {
         UpdateOperation();
+        var previousTopicCount = ChatGptTopics.Count;
+        var oldTopic = SelectedChatGptTopic?.GalleryId;
+        ChatGptTopics.Clear(); foreach (var topic in await content.ChatGptTopicsAsync()) ChatGptTopics.Add(topic);
+        SelectedChatGptTopic = ChatGptTopics.FirstOrDefault(t => t.GalleryId == oldTopic) ?? ChatGptTopics.FirstOrDefault();
         var previousCount = PreparedArticles.Count;
         var ready = await content.ReadySetAsync(); var selected = SelectedPreparedArticle?.Id;
         PreparedArticles.Clear(); foreach (var article in ready) PreparedArticles.Add(article);
@@ -135,14 +143,15 @@ public partial class MainViewModel : ObservableObject
             var last = (await content.RunsAsync()).FirstOrDefault(r => r.PeriodKey.StartsWith("stock-"));
             if (last?.Status is "Częściowe wykonanie" or "Przerwano") PreparationStatus = $"Gotowe {ready.Count}/3 — ostatnia próba: {last.Status.ToLowerInvariant()}. Szczegóły i przyczynę sprawdzisz w Historii.";
         }
-        if (preparedInitialized && previousCount < 3 && ready.Count == 3) PreparedSetCompleted?.Invoke();
+        if (UseChatGpt) PreparationStatus = OperationSession.Paused(paths) ? "Przygotowanie poleceń do ChatGPT wstrzymane — kliknij Wznów." : $"Tryb ChatGPT — {ChatGptTopics.Count} poleceń do skopiowania. Wklej odpowiedzi w zakładce ChatGPT; zaimportowane teksty znajdziesz w Artykułach. Bez płatnego API.";
+        if (preparedInitialized && ((UseChatGpt && previousTopicCount < 3 && ChatGptTopics.Count == 3) || (!UseChatGpt && previousCount < 3 && ready.Count == 3))) PreparedSetCompleted?.Invoke();
     }
     public async Task ConfigureBackgroundAsync()
     {
         try
         {
             WindowsScheduler.ApplyAutoStart(Settings.StartWithWindows, Environment.ProcessPath!);
-            if (Settings.BackgroundPreparationEnabled && Settings.SetupCompleted && !string.IsNullOrWhiteSpace(Settings.AiModel) && string.IsNullOrWhiteSpace(secrets.Read(Settings.AiProvider)))
+            if (!UseChatGpt && Settings.BackgroundPreparationEnabled && Settings.SetupCompleted && !string.IsNullOrWhiteSpace(Settings.AiModel) && string.IsNullOrWhiteSpace(secrets.Read(Settings.AiProvider)))
             { PreparationStatus = "Zapisz klucz API w Ustawieniach, aby przygotować artykuły w tle."; return; }
             await scheduler.ApplyBackgroundAsync(Settings, startNow: true);
             await UpdatePreparedAsync();
@@ -210,6 +219,31 @@ public partial class MainViewModel : ObservableObject
     }
     [RelayCommand] private void OpenSuggestedGallery() { if (SelectedSuggestion == null) return; SelectedGallery = Galleries.FirstOrDefault(g => g.Id == SelectedSuggestion.Gallery.Id); SelectedTab = 1; }
     [RelayCommand] private Task GenerateCycle() => RunAsync(async () => { Report = await Background((progress, token) => content.RunCycleAsync(false, progress, token)); await RefreshAsync(); Status = "Cykl zakończony — zobacz raport"; MessageBox.Show(Report, "Przygotowanie artykułów zakończone", MessageBoxButton.OK, MessageBoxImage.Information); });
+    [RelayCommand] private void OpenChatGpt() => SelectedTab = 7;
+    [RelayCommand] private Task PrepareChatGpt() => RunAsync(async () =>
+    {
+        if (!UseChatGpt) throw new InvalidOperationException("Włącz tryb ChatGPT w Ustawieniach i zapisz zmianę.");
+        OperationSession.Resume(paths); Report = await Background((progress, token) => content.PrepareChatGptSetAsync(progress, token));
+        await UpdatePreparedAsync(); SelectedTab = 7; Status = Report;
+    });
+    [RelayCommand] private Task CopyChatGptPrompt() => RunAsync(async () =>
+    {
+        if (SelectedChatGptTopic == null) throw new InvalidOperationException("Wybierz temat.");
+        var id = SelectedChatGptTopic.GalleryId;
+        var refreshed = await Task.Run(() => content.PrepareChatGptTopicAsync(id, Token), Token);
+        Clipboard.SetText(refreshed.Prompt); await UpdatePreparedAsync();
+        Status = "Sprawdzono /blog i kartę modelu. Polecenie skopiowane — wklej je w swoim czacie ChatGPT.";
+    });
+    [RelayCommand] private void PasteChatGptResponse() => ChatGptResponse = Clipboard.ContainsText() ? Clipboard.GetText() : "";
+    [RelayCommand] private Task ImportChatGptResponse() => RunAsync(async () =>
+    {
+        if (SelectedChatGptTopic == null) throw new InvalidOperationException("Wybierz temat odpowiadający wklejonej odpowiedzi.");
+        Article article;
+        try { article = await Task.Run(() => content.ImportChatGptResponseAsync(SelectedChatGptTopic.GalleryId, ChatGptResponse, Token), Token); }
+        catch (System.Text.Json.JsonException) { throw new InvalidOperationException("Wklej całą odpowiedź JSON z dwoma artykułami PL i EN. Jeśli ChatGPT przerwał odpowiedź, poproś o dokończenie i połącz cały JSON."); }
+        ChatGptResponse = ""; await RefreshAsync(); await UpdatePreparedAsync(); SelectedArticle = Articles.First(a => a.Id == article.Id); SelectedTab = 2;
+        Status = "Zapisano PL i EN bez API. Przeczytaj uwagi, zatwierdź i wyeksportuj artykuły.";
+    });
     [RelayCommand] private void OpenArticles() => SelectedTab = 2;
     [RelayCommand] private void OpenSettings() => SelectedTab = 5;
     [RelayCommand] private Task LoadGallery() => RunAsync(async () => { if (SelectedGallery == null) throw new InvalidOperationException("Wybierz galerię."); var id = SelectedGallery.Id; var token = Token; await Task.Run(() => content.LoadGalleryDetailsAsync(id, token), token); await RefreshAsync(); Status = "Pobrano dane i pełnowymiarowe zdjęcia galerii"; });
@@ -218,12 +252,18 @@ public partial class MainViewModel : ObservableObject
     {
         var id = language == null ? SelectedGallery?.Id : SelectedArticle?.GalleryId;
         if (id == null) throw new InvalidOperationException("Wybierz galerię lub artykuł.");
+        if (UseChatGpt)
+        {
+            var topic = await Task.Run(() => content.PrepareChatGptTopicAsync(id.Value, Token), Token);
+            await UpdatePreparedAsync(); SelectedChatGptTopic = ChatGptTopics.First(t => t.GalleryId == topic.GalleryId); SelectedTab = 7;
+            Status = "Polecenie gotowe — skopiuj je do swojego czatu ChatGPT."; return;
+        }
         if (regenerate && MessageBox.Show("Ponowne generowanie utworzy nową wersję i spowoduje koszt API. Kontynuować?", "Potwierdzenie ponownego generowania", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
         var a = await Background((progress, token) => content.GenerateAsync(id.Value, regenerate, dry, language, progress, token));
         await RefreshAsync(); if (dry) Articles.Insert(0, a); SelectedArticle = dry ? a : Articles.FirstOrDefault(x => x.Id == a.Id); SelectedTab = 2;
         Status = dry ? "Test zakończony — galeria niewykorzystana, bez maila i zapisu artykułu" : "Generowanie zakończone";
     }
-    [RelayCommand] private Task GenerateSelected() => RunAsync(async () => { await GenerateSelectedAsync(false, false); MessageBox.Show("Artykuł PL i EN jest przygotowany. Sprawdź treść w zakładce Artykuły.", "Artykuł gotowy", MessageBoxButton.OK, MessageBoxImage.Information); });
+    [RelayCommand] private Task GenerateSelected() => RunAsync(async () => { await GenerateSelectedAsync(false, false); if (!UseChatGpt) MessageBox.Show("Artykuł PL i EN jest przygotowany. Sprawdź treść w zakładce Artykuły.", "Artykuł gotowy", MessageBoxButton.OK, MessageBoxImage.Information); });
     [RelayCommand] private Task RegenerateGallery() => RunAsync(() => GenerateSelectedAsync(true, false));
     [RelayCommand] private Task TestPrompt() => RunAsync(async () => { if (SelectedTab == 3) { if (SelectedGallery?.Brand != PromptBrand) throw new InvalidOperationException("Wybierz galerię tej samej marki co prompt."); await prompts.SaveAsync(PromptBrand, PromptText, "Wersja testowana przez użytkownika", PromptVerified, Token); } await GenerateSelectedAsync(false, true); });
     [RelayCommand] private Task RegenerateLanguage() => RunAsync(() => GenerateSelectedAsync(true, false, Language));

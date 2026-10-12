@@ -31,7 +31,7 @@ public partial class App : Application
             menu.Items.Add("Anuluj operację i wstrzymaj przygotowanie", null, (_, _) => Dispatcher.Invoke(() => vm.CancelCommand.Execute(null)));
             menu.Items.Add("Zakończ i wstrzymaj przygotowanie", null, (_, _) => Dispatcher.Invoke(() => { vm.CancelCommand.Execute(null); exiting = true; Shutdown(); }));
             tray.ContextMenuStrip = menu; tray.DoubleClick += (_, _) => Dispatcher.Invoke(ShowMainWindow);
-            vm.PreparedSetCompleted += () => tray.ShowBalloonTip(10000, "Artykuły gotowe", "Przygotowano zestaw 3 artykułów PL + EN. Otwórz WT - Blog Generator, aby je przeczytać.", System.Windows.Forms.ToolTipIcon.Info);
+            vm.PreparedSetCompleted += () => tray.ShowBalloonTip(10000, vm.UseChatGpt ? "Polecenia do ChatGPT gotowe" : "Artykuły gotowe", vm.UseChatGpt ? "Wybrano 3 tematy bez duplikatów. Otwórz zakładkę ChatGPT i skopiuj polecenia." : "Przygotowano zestaw 3 artykułów PL + EN. Otwórz WT - Blog Generator, aby je przeczytać.", System.Windows.Forms.ToolTipIcon.Info);
             activationTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
             activationTimer.Tick += (_, _) => { if (showWindow.WaitOne(0)) ShowMainWindow(); }; activationTimer.Start();
             if (!e.Args.Contains("--background") || !vm.Settings.SetupCompleted) ShowMainWindow();

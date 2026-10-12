@@ -43,3 +43,9 @@ public sealed class LanguagesConverter : IValueConverter
     public object Convert(object value, Type type, object p, CultureInfo c) => value is IEnumerable<ArticleVersion> versions ? string.Join(" / ", versions.Select(x => x.Language).Distinct().Order()) : "Brak wersji";
     public object ConvertBack(object value, Type type, object p, CultureInfo c) => Binding.DoNothing;
 }
+
+public sealed class ApiVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type type, object p, CultureInfo c) => value is true ? Visibility.Collapsed : Visibility.Visible;
+    public object ConvertBack(object value, Type type, object p, CultureInfo c) => Binding.DoNothing;
+}

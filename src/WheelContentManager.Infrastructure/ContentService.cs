@@ -8,7 +8,7 @@ using WheelContentManager.GalleryProviders;
 
 namespace WheelContentManager.Infrastructure;
 
-public sealed class ContentService(IDbContextFactory<ContentDb> factory, IEnumerable<IGalleryProvider> galleries, IEnumerable<IAiProvider> aiProviders, IBlogPublicationChecker blog, ISecretStore secrets, SettingsService settings, PromptService prompts, ExportService exports, NotificationService notifications, AppPaths paths, IHttpClientFactory http, ILogger<ContentService> logger)
+public sealed partial class ContentService(IDbContextFactory<ContentDb> factory, IEnumerable<IGalleryProvider> galleries, IEnumerable<IAiProvider> aiProviders, IBlogPublicationChecker blog, ISecretStore secrets, SettingsService settings, PromptService prompts, ExportService exports, NotificationService notifications, AppPaths paths, IHttpClientFactory http, ILogger<ContentService> logger)
 {
     private readonly SemaphoreSlim accounting = new(1, 1);
     private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
@@ -148,6 +148,7 @@ public sealed class ContentService(IDbContextFactory<ContentDb> factory, IEnumer
     }
     private async Task<AiResult> CallAsync(IAiProvider provider, AppSettings s, Budget budget, GenerationJob job, string instruction, string data, IReadOnlyList<string> images, CancellationToken ct)
     {
+        if ((await settings.LoadAsync(ct)).UseChatGpt) throw new InvalidOperationException("Tryb ChatGPT nie wykonuje wywołań płatnego API. Przygotuj polecenie i wklej odpowiedź.");
         var maxOutput = instruction.StartsWith("Analizuj") || instruction.StartsWith("Sprawdź") ? Math.Min(s.MaxOutputTokens, 2000) : s.MaxOutputTokens;
         (int Input, int Output) reserved;
         await accounting.WaitAsync(ct);
@@ -207,6 +208,7 @@ public sealed class ContentService(IDbContextFactory<ContentDb> factory, IEnumer
     }
     public async Task<Article> GenerateAsync(long galleryId, bool regenerate, bool dryRun, string? onlyLanguage, IProgress<string>? progress, CancellationToken ct)
     {
+        if ((await settings.LoadAsync(ct)).UseChatGpt) throw new InvalidOperationException("W trybie ChatGPT przygotuj polecenie w zakładce ChatGPT, a następnie wklej odpowiedź. API jest wyłączone.");
         using var operation = OperationSession.Start(paths, "Generowanie artykułu", ct); ct = operation.Token; progress = operation.Progress(progress);
         var s = await settings.LoadAsync(ct); return await GenerateInternalAsync(galleryId, regenerate, dryRun, onlyLanguage, null, new(s), progress, ct);
     }
@@ -382,9 +384,10 @@ public sealed class ContentService(IDbContextFactory<ContentDb> factory, IEnumer
         }
         return ReadyArticles.Set(articles.Where(Valid));
     }
-    public Task<string> PrepareReadySetAsync(IProgress<string>? progress, CancellationToken ct) => RunCycleAsync(false, progress, ct, replenish: true);
+    public async Task<string> PrepareReadySetAsync(IProgress<string>? progress, CancellationToken ct) => (await settings.LoadAsync(ct)).UseChatGpt ? await PrepareChatGptSetAsync(progress, ct) : await RunCycleAsync(false, progress, ct, replenish: true);
     public async Task<string> RunCycleAsync(bool scheduled, IProgress<string>? progress, CancellationToken ct, bool replenish = false)
     {
+        if ((await settings.LoadAsync(ct)).UseChatGpt) return await PrepareChatGptSetAsync(progress, ct);
         using var operation = OperationSession.Start(paths, "Przygotowanie artykułów", ct); ct = operation.Token; progress = operation.Progress(progress); var s = await settings.LoadAsync(ct); s.Validate();
         if (scheduled && !s.ScheduleEnabled) return "Automatyzacja jest wyłączona.";
         if (replenish && !s.BackgroundPreparationEnabled) return "Przygotowanie w tle jest wyłączone.";

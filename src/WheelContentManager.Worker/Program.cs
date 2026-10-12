@@ -19,16 +19,18 @@ try
     }
     else if (args.Contains("--prepare-stock"))
     {
+        if (!(await host.Services.GetRequiredService<SettingsService>().LoadAsync()).BackgroundPreparationEnabled) return 0;
         Console.WriteLine(await service.PrepareReadySetAsync(progress, cancellation.Token));
-        return OperationSession.Paused(host.Services.GetRequiredService<AppPaths>()) || (await service.ReadySetAsync()).Count == 3 || !(await host.Services.GetRequiredService<SettingsService>().LoadAsync()).BackgroundPreparationEnabled ? 0 : 1;
+        return OperationSession.Paused(host.Services.GetRequiredService<AppPaths>()) || await service.PreparationCompleteAsync() || !(await host.Services.GetRequiredService<SettingsService>().LoadAsync()).BackgroundPreparationEnabled ? 0 : 1;
     }
     else if (args.Contains("--run-weekly"))
     {
         var configuration = await host.Services.GetRequiredService<SettingsService>().LoadAsync();
-        if (configuration.ScheduleEnabled && configuration.BackgroundPreparationEnabled)
+        if (!configuration.ScheduleEnabled) return 0;
+        if (configuration.UseChatGpt || configuration.BackgroundPreparationEnabled)
         {
             Console.WriteLine(await service.PrepareReadySetAsync(progress, cancellation.Token));
-            return OperationSession.Paused(host.Services.GetRequiredService<AppPaths>()) || (await service.ReadySetAsync()).Count == 3 ? 0 : 1;
+            return OperationSession.Paused(host.Services.GetRequiredService<AppPaths>()) || await service.PreparationCompleteAsync() ? 0 : 1;
         }
         Console.WriteLine(await service.RunCycleAsync(true, progress, cancellation.Token));
         var settings = await host.Services.GetRequiredService<SettingsService>().LoadAsync();

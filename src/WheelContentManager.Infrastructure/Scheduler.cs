@@ -58,7 +58,7 @@ public sealed class WindowsScheduler(AppPaths paths)
             if (await RunAsync(["/Query", "/TN", name], ct, true) == 0) await RunAsync(["/Change", "/TN", name, "/DISABLE"], ct);
             return;
         }
-        if (!s.SetupCompleted || string.IsNullOrWhiteSpace(s.AiModel) || s.InputPricePerMillion <= 0 || s.OutputPricePerMillion <= 0) return;
+        if (!s.SetupCompleted || (!s.UseChatGpt && (string.IsNullOrWhiteSpace(s.AiModel) || s.InputPricePerMillion <= 0 || s.OutputPricePerMillion <= 0))) return;
         var worker = Path.Combine(AppContext.BaseDirectory, "Worker", "WheelContentManager.Worker.exe");
         if (!File.Exists(worker)) throw new InvalidOperationException("Brak Workera w paczce. Zainstaluj pełną paczkę WT - Blog Generator.");
         var xml = Path.Combine(paths.Root, "prepare-schedule.xml");

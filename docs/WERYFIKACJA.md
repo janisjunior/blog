@@ -5,7 +5,7 @@
 - Zainstalowano oficjalny SDK .NET 10.0.401; SHA512 archiwum zgadza się z metadanymi wydania Microsoft.
 - `scripts/setup-cloud.sh`: odtwarzanie zależności z lockfile, kompilacja wszystkich siedmiu projektów (również WPF przez EnableWindowsTargeting), testy.
 - Kompilacja: 0 błędów, 0 ostrzeżeń.
-- 163 testy: 163 zaliczone, 0 niezaliczonych, 0 pominiętych. Testy sprawdzają migracje SQLite, deduplikację, korekty, osie i rozmiary, pełne sekcje DOCX, prompty, JSON, intro, jakość, podobieństwo, kontrakty HTTP OpenAI/Anthropic, generowanie PL/EN z mock AI i obrazami, ograniczenia prób/kosztów, brak zużycia galerii w dry-run, historię regenerowania, dokumenty i zdjęcia w DOCX/HTML/TXT/ZIP, XML harmonogramu, blokadę procesów, warunki pełnego powiadomienia oraz jego niepewny stan i ręczne potwierdzenie.
+- 167 testów: 167 zaliczonych, 0 niezaliczonych, 0 pominiętych. Testy sprawdzają migracje SQLite, deduplikację, korekty, osie i rozmiary, pełne sekcje DOCX, prompty, JSON, intro, jakość, podobieństwo, kontrakty HTTP OpenAI/Anthropic, generowanie PL/EN z mock AI i obrazami, ograniczenia prób/kosztów, brak zużycia galerii w dry-run, historię regenerowania, dokumenty i zdjęcia w DOCX/HTML/TXT/ZIP, XML harmonogramu, blokadę procesów, warunki pełnego powiadomienia oraz jego niepewny stan i ręczne potwierdzenie.
 - Testy dokumentu: oryginalny DOCX, kompletność wszystkich linii wymagań, dynamiczne dane galerii, brak wycieku konfiguracji przykładowych, gotowe szablony przy instalacji, idempotentny import, rozpoznawanie treści po SHA256 oraz aktualizacja bez nadpisania edycji użytkownika.
 - Testy /blog: wszystkie trzy rzeczywiste struktury HTML, paginacja, wspólne zdjęcia, możliwy duplikat, pomijanie nawigacji i polecanych wpisów, błąd sieci i brak kosztu AI przy blokadzie. Test pełnego klienta HTTP wykrywa wpis z drugiej strony i sprawdza, że niepełny skan nie trafia do cache.
 - Testy na lokalnych fragmentach rzeczywistego HTML wszystkich trzech marek. Oddzielna syntetyczna próbka nie jest przedstawiana jako źródło produkcyjne.
@@ -112,3 +112,9 @@ GUI ma tylko wybór marki, wyszukiwanie galerii, podgląd i linki oraz eksport p
 - Test pokazuje dokładny URL błędnej odpowiedzi. Inny test potwierdza niezależne przygotowanie dwóch pozostałych marek, brak maila częściowego oraz dokończenie zestawu po usunięciu błędu źródła. Wcześniej zweryfikowana paczka marki z nieudanym odświeżeniem nie jest przedstawiana jako gotowa.
 - Rzeczywisty test transportu na lokalnym SMTP z STARTTLS i niezaufanym certyfikatem potwierdza odrzucenie TLS przed AUTH, widoczność nazwy certyfikatu i brak hasła w komunikacie. Nie wyłączono weryfikacji TLS.
 - Połączenia z rzeczywistą pocztą użytkownika nie zweryfikowano: DNS tego hosta jest niedostępny z chmury. Nowy komunikat z komputera użytkownika jest potrzebny do rozróżnienia nazwy, zaufania, ważności i protokołu TLS. Nie wysłano rzeczywistego maila.
+
+## Wysyłka ręczna i link ChatGPT — 0.7.3
+
+- Przycisk „Wyślij 3 paczki teraz” wysyła gotowy zestaw przed terminem, także przy wyłączonej poczcie automatycznej lub wstrzymanym przygotowaniu. Przed wysyłką ponownie kontroluje publikacje i ostatnie modele.
+- Testy potwierdzają wysyłkę przed piątkiem, brak ponownej wysyłki tego zestawu w terminie, blokadę po publikacji tematu, niepełnym zestawie i niepewnym wyniku SMTP. Wiadomość HTML i tekstowa zawierają wszystkie adresy galerii oraz https://chatgpt.com/.
+- Kompilacja lokalna: zero błędów i ostrzeżeń. 167 testów zaliczonych. Testy używają mocka poczty, bez rzeczywistej wysyłki. Interakcji WPF i otwarcia osobistego ChatGPT nie uruchomiono w Linux.

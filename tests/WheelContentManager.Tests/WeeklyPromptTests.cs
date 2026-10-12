@@ -109,6 +109,46 @@ public class WeeklyPromptTests
         var ranked = WeeklyPromptService.RankCandidates(WheelBrand.JR, new[] { G(1, "JR49"), G(2, "JR28"), G(3, "JR11", true), G(4, "SL03") }, posts, previous);
         Assert.Equal(4, Assert.Single(ranked).Id);
     }
+    [Fact] public async Task ManualMailSendsBeforeFridayWithAutomaticMailDisabledAndNeverSendsTwice()
+    {
+        await using var env = await TestEnvironment.CreateAsync(); var mailer = new Mailer(); var service = await Service(env, mailer, false);
+        await service.TickAsync(Monday); var batch = Assert.Single(await service.BatchesAsync());
+        OperationSession.RequestCancellation(env.Services.GetRequiredService<AppPaths>());
+        await service.SendNowAsync(batch.Key, Monday.AddMinutes(1));
+        Assert.Equal(1, mailer.Calls); Assert.Equal("Sent", (await service.BatchesAsync()).Single().MailState);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.SendNowAsync(batch.Key, Monday.AddMinutes(2)));
+        OperationSession.Resume(env.Services.GetRequiredService<AppPaths>());
+        await Service(env, mailer, true);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.TickAsync(batch.Due));
+        Assert.Equal(1, mailer.Calls); Assert.Empty(env.Ai.Calls);
+    }
+    [Fact] public async Task ManualMailRechecksPublicationAndRejectsIncompleteSet()
+    {
+        await using var env = await TestEnvironment.CreateAsync(); var mailer = new Mailer(); var service = await Service(env, mailer);
+        await service.TickAsync(Monday); var batch = Assert.Single(await service.BatchesAsync());
+        env.Blog.Result = new(true, false, "https://fixture.example/blog/new", "Nowy wpis");
+        var status = await service.SendNowAsync(batch.Key, Monday.AddMinutes(1));
+        Assert.Contains("Mail nie został wysłany", status); Assert.Equal(0, mailer.Calls);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.SendNowAsync(batch.Key, Monday.AddMinutes(2)));
+        Assert.Equal(0, mailer.Calls);
+    }
+    [Fact] public async Task ManualMailCannotRetryAnUncertainDelivery()
+    {
+        await using var env = await TestEnvironment.CreateAsync(); var mailer = new Mailer { Failure = new IOException("Lost response") }; var service = await Service(env, mailer);
+        await service.TickAsync(Monday); var batch = Assert.Single(await service.BatchesAsync());
+        await Assert.ThrowsAsync<IOException>(() => service.SendNowAsync(batch.Key, Monday.AddMinutes(1)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.SendNowAsync(batch.Key, Monday.AddMinutes(2)));
+        Assert.Equal(1, mailer.Calls); Assert.Equal("Unknown", (await service.BatchesAsync()).Single().MailState);
+    }
+    [Fact] public async Task WeeklyMailContainsEachGalleryAndChatGptLinksInHtmlAndPlainText()
+    {
+        await using var env = await TestEnvironment.CreateAsync(); var service = await Service(env, new Mailer());
+        await service.TickAsync(Monday); var batch = Assert.Single(await service.BatchesAsync());
+        var (text, html) = NotificationService.WeeklyMessageBody(batch);
+        Assert.Contains("https://chatgpt.com/", text); Assert.Contains("href=\"https://chatgpt.com/\"", html);
+        foreach (var item in batch.Items) { Assert.Contains(item.Package!.GalleryUrl, text); Assert.Contains("href=\"" + item.Package.GalleryUrl + "\"", html); }
+        Assert.Contains("wtblog://weekly/" + batch.Key, html);
+    }
     [Fact] public void WindowsTaskCallsOnlyPromptWorkflowAndCatchesMissedTriggers()
     {
         var xml = System.Xml.Linq.XDocument.Parse(WindowsScheduler.PromptTaskXml(@"C:\WT\Worker.exe", @"PC\User"));

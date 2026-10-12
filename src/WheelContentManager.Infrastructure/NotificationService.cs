@@ -43,12 +43,17 @@ public sealed class NotificationService(IDbContextFactory<ContentDb> factory, Se
         if (batch.Items.Count != 3 || Enum.GetValues<WheelBrand>().Any(b => batch.Items.Count(i => i.Brand == b && i.Package != null && File.Exists(i.Package.Document)) != 1))
             throw new PromptMailNotSentException("Nie ma trzech kompletnych paczek — mail nie został wysłany.");
         var zip = ExportService.CreateZip(batch.Items.Select(i => i.Package!.Folder), Path.Combine(paths.Root, "paczki-" + batch.Key + ".zip"));
-        var text = "Gotowe 3 paczki do własnego ChatGPT: po jednej dla JR, Concaver i Vesser. Rozpakuj załączony ZIP i wrzuć każdy DOCX do ChatGPT bez dodatkowego polecenia. Najpierw otrzymasz EN, następnie PL. Zdjęcia pobierzesz z linków w dokumentach.\n\n" +
+        var (text, html) = WeeklyMessageBody(batch);
+        await SendAsync(s, "WT - Blog Generator — 3 paczki do ChatGPT — " + batch.Key, text, batch.MessageId, zip, ct, html);
+    }
+    public static (string Text, string Html) WeeklyMessageBody(WeeklyPromptBatch batch)
+    {
+        var text = "Gotowe 3 paczki do własnego ChatGPT: po jednej dla JR, Concaver i Vesser. Rozpakuj załączony ZIP i wrzuć każdy DOCX do ChatGPT bez dodatkowego polecenia. Najpierw otrzymasz EN, następnie PL. Zdjęcia pobierzesz z linków w dokumentach.\n\nOtwórz nowy czat ChatGPT: https://chatgpt.com/\n\n" +
             string.Join("\n\n", batch.Items.Select(i => i.Brand.Name() + " — " + i.Package!.GalleryUrl + "\n" + i.Reason)) + "\n\nOtwórz program: wtblog://weekly/" + batch.Key + "\nPaczki są też w sekcji Paczki tygodniowe programu. Link wymaga zainstalowanej aplikacji na tym komputerze; jeśli poczta go nie obsługuje, użyj załącznika.";
-        var html = "<p>Gotowe trzy paczki do ChatGPT: JR, Concaver i Vesser.</p><p>Rozpakuj załącznik ZIP i wrzuć DOCX do ChatGPT. Kolejność artykułów: EN, potem PL.</p><ul>" +
+        var html = "<p>Gotowe trzy paczki do ChatGPT: JR, Concaver i Vesser.</p><p><a href=\"https://chatgpt.com/\">Otwórz nowy czat ChatGPT</a></p><p>Rozpakuj załącznik ZIP i wrzuć DOCX do ChatGPT. Kolejność artykułów: EN, potem PL.</p><ul>" +
             string.Join("", batch.Items.Select(i => "<li>" + System.Net.WebUtility.HtmlEncode(i.Brand.Name()) + ": <a href=\"" + System.Net.WebUtility.HtmlEncode(i.Package!.GalleryUrl) + "\">Galeria źródłowa</a></li>")) +
             "</ul><p><a href=\"wtblog://weekly/" + batch.Key + "\">Otwórz WT - Blog Generator</a></p><p>Jeśli link nie jest obsługiwany przez pocztę, użyj załącznika albo sekcji Paczki tygodniowe w programie.</p>";
-        await SendAsync(s, "WT - Blog Generator — 3 paczki do ChatGPT — " + batch.Key, text, batch.MessageId, zip, ct, html);
+        return (text, html);
     }
     public async Task<List<NotificationHistory>> HistoryAsync()
     {

@@ -15,6 +15,8 @@ public partial class MainViewModel : ObservableObject
     private readonly AppPaths paths;
     private readonly IServiceProvider services;
     private CancellationTokenSource? work;
+    private string? weeklyBatchKey;
+    private string? weeklyMailState;
     public ObservableCollection<Gallery> Galleries { get; } = [];
     public ICollectionView GalleryView { get; }
     public WheelBrand[] Brands { get; } = Enum.GetValues<WheelBrand>();
@@ -23,8 +25,8 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string weeklyBatchLabel = "Paczki tygodniowe — piątek 12:00 (Polska)";
     [ObservableProperty] private bool backgroundBusy;
     public bool CanCancel => Busy || BackgroundBusy;
-    partial void OnBusyChanged(bool value) => OnPropertyChanged(nameof(CanCancel));
-    partial void OnBackgroundBusyChanged(bool value) => OnPropertyChanged(nameof(CanCancel));
+    partial void OnBusyChanged(bool value) { OnPropertyChanged(nameof(CanCancel)); SendWeeklyMailCommand.NotifyCanExecuteChanged(); }
+    partial void OnBackgroundBusyChanged(bool value) { OnPropertyChanged(nameof(CanCancel)); SendWeeklyMailCommand.NotifyCanExecuteChanged(); }
     public event Action? CancelBackgroundRequested;
     public event Action? ResumeBackgroundRequested;
     [ObservableProperty] private WheelBrand selectedBrand;
@@ -54,9 +56,11 @@ public partial class MainViewModel : ObservableObject
     public async Task LoadWeeklyAsync()
     {
         var batches = await services.GetRequiredService<WeeklyPromptService>().BatchesAsync();
-        var batch = batches.FirstOrDefault(b => b.Items.Count == 3 && b.Items.All(i => i.Package != null)) ?? batches.FirstOrDefault();
+        var batch = batches.Where(b => b.MailState != "Sent").OrderBy(b => b.Due).FirstOrDefault() ?? batches.FirstOrDefault();
+        weeklyBatchKey = batch?.Key; weeklyMailState = batch?.MailState;
         WeeklyBatchLabel = batch == null ? "Paczki tygodniowe — piątek 12:00 (Polska)" : "Paczki na " + batch.Key + " — piątek 12:00 (Polska)";
         WeeklyItems.Clear(); if (batch != null) foreach (var item in batch.Items.Where(i => i.Package != null)) WeeklyItems.Add(item);
+        SendWeeklyMailCommand.NotifyCanExecuteChanged();
         var cached = await content.CachedPromptGalleriesAsync(SelectedBrand);
         if (Galleries.Count == 0) { SetList(cached.Galleries); return; }
         var selectedId = SelectedGallery?.Id; var previousPrompt = Prompt; var previousPackage = Package;
@@ -68,6 +72,14 @@ public partial class MainViewModel : ObservableObject
         SelectedGallery = Galleries.FirstOrDefault(g => g.Id == selectedId); Prompt = previousPrompt; Package = previousPackage;
     }
     [RelayCommand] private void ConfigureMail() => new MailSettingsWindow(services) { Owner = System.Windows.Application.Current.MainWindow }.ShowDialog();
+    private bool CanSendWeeklyMail() => !Busy && !BackgroundBusy && weeklyBatchKey != null && weeklyMailState == "Pending" && WeeklyItems.Count == 3;
+    [RelayCommand(CanExecute = nameof(CanSendWeeklyMail))] private Task SendWeeklyMail() => RunAsync(async ct =>
+    {
+        var key = weeklyBatchKey ?? throw new InvalidOperationException("Najpierw przygotuj 3 paczki.");
+        Status = "Sprawdzanie /blog i wysyłanie 3 paczek…";
+        try { WeeklyStatus = Status = await Task.Run(() => services.GetRequiredService<WeeklyPromptService>().SendNowAsync(key, DateTimeOffset.UtcNow, ct), ct); }
+        finally { await LoadWeeklyAsync(); }
+    });
     [RelayCommand] private void OpenWeeklyPackage(string folder) => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(folder) { UseShellExecute = true });
     [RelayCommand] private void OpenWeeklyGallery(string url) => OpenUrl(url);
     [RelayCommand] private void ResumeBackground() { OperationSession.Resume(paths); ResumeBackgroundRequested?.Invoke(); WeeklyStatus = "Wznowiono przygotowanie paczek w tle."; }

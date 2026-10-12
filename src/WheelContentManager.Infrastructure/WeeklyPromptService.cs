@@ -122,6 +122,24 @@ public sealed class WeeklyPromptService(IDbContextFactory<ContentDb> factory, Co
         var deliver = now >= batch.Due && s.WeeklyPromptMailEnabled && (batch.LastMailAttempt == null || now - batch.LastMailAttempt >= TimeSpan.FromMinutes(15));
         if (!deliver && now - batch.LastSiteCheckAt < TimeSpan.FromHours(6)) return batch.Status + (!s.WeeklyPromptMailEnabled ? " Skonfiguruj i włącz pocztę." : "");
         // Recheck live indexes at delivery, even if packages were prepared earlier.
+        if (!await CheckDeliveryAsync(batch, now, ct)) return batch.Status;
+        if (!deliver) return batch.Status + (!s.WeeklyPromptMailEnabled ? " Skonfiguruj i włącz pocztę." : "");
+        return await DeliverAsync(batch, now, s, ct);
+    }
+    public async Task<string> SendNowAsync(string key, DateTimeOffset now, CancellationToken ct = default)
+    {
+        using var gate = OperationLock.Acquire(Path.Combine(paths.Root, "weekly-prompts.lock"));
+        var batch = (await BatchesAsync(ct)).SingleOrDefault(b => b.Key == key)
+            ?? throw new InvalidOperationException("Nie znaleziono paczek. Najpierw przygotuj zestaw.");
+        if (batch.MailState == "Sent") throw new InvalidOperationException("Ten zestaw został już wysłany. Nie wysłano duplikatu.");
+        if (batch.MailState is "Sending" or "Unknown") throw new InvalidOperationException("Poprzednia wysyłka ma niepewny wynik. Sprawdź skrzynkę i rozstrzygnij ją w ustawieniach poczty.");
+        if (batch.Items.Count != 3 || Enum.GetValues<WheelBrand>().Any(b => batch.Items.Count(i => i.Brand == b && i.Package != null && File.Exists(i.Package.Document) && File.Exists(i.Package.Instructions)) != 1))
+            throw new InvalidOperationException("Najpierw przygotuj wszystkie 3 paczki — po jednej dla każdej marki.");
+        if (!await CheckDeliveryAsync(batch, now, ct)) return batch.Status;
+        return await DeliverAsync(batch, now, await settings.LoadAsync(ct), ct);
+    }
+    private async Task<bool> CheckDeliveryAsync(WeeklyPromptBatch batch, DateTimeOffset now, CancellationToken ct)
+    {
         foreach (var item in batch.Items)
         {
             var match = await content.CheckPromptDeliveryAsync(item.GalleryId, ct);
@@ -129,11 +147,15 @@ public sealed class WeeklyPromptService(IDbContextFactory<ContentDb> factory, Co
             if (match.Published || match.PossibleDuplicate || recent.FirstOrDefault()?.WheelModels.Any(m => TopicPlanner.Model(m) == TopicPlanner.Model(item.Model)) == true)
             {
                 batch.Items.Remove(item); batch.DeliveryCheckedAt = null; await SaveAsync(batch, ct);
-                return "Temat pojawił się na /blog — kolejny przebieg przygotuje zastępczą paczkę.";
+                batch.Status = "Temat pojawił się na /blog — kolejny przebieg przygotuje zastępczą paczkę. Mail nie został wysłany.";
+                await SaveAsync(batch, ct); return false;
             }
         }
         batch.LastSiteCheckAt = now; await SaveAsync(batch, ct);
-        if (!deliver) return batch.Status + (!s.WeeklyPromptMailEnabled ? " Skonfiguruj i włącz pocztę." : "");
+        return true;
+    }
+    private async Task<string> DeliverAsync(WeeklyPromptBatch batch, DateTimeOffset now, AppSettings s, CancellationToken ct)
+    {
         using var sending = OperationSession.Start(paths, "Wysyłanie 3 paczek mailem", ct);
         batch.MailState = "Sending"; batch.LastMailAttempt = now; await SaveAsync(batch, sending.Token);
         try { await mailer.SendAsync(batch, sending.Token); batch.MailState = "Sent"; batch.Status = "Wysłano 3 paczki na " + s.MailTo; }

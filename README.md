@@ -1,153 +1,31 @@
-# WT - Blog Generator
+# WT - Blog Generator 0.6.0
 
-Aplikacja desktopowa dla Windows 11, przygotowująca artykuły o konfiguracjach samochodów na felgach JR Wheels, Concaver Wheels i Vesser Forged. Interfejs jest po polsku, a treści PL i EN powstają w osobnych zadaniach AI. Aplikacja nie publikuje artykułów na stronach.
+Program do wybierania galerii JR Wheels, Concaver Wheels i Vesser Forged oraz przygotowywania kompletnych plików do własnego czatu ChatGPT. Jasny panel: wybór marki, lista galerii, podgląd zdjęcia i zapis pliku. Bez importowania odpowiedzi, zatwierdzania artykułów, API, SMTP i automatycznego generowania tekstów.
 
-## Jak uruchomić — bez Visual Studio
+## Jak używać
 
-1. Otwórz [zakładkę Actions repozytorium](https://github.com/janisjunior/blog/actions).
-2. Wybierz zakończone zielonym znacznikiem uruchomienie **Windows — kompilacja, testy i paczka EXE**.
-3. Na dole, w **Artifacts**, pobierz **WT-Blog-Generator-Windows** (GitHub wymaga zalogowania do pobrania).
-4. Rozpakuj pobrany ZIP. Uruchom `WT-Blog-Generator-Setup.exe`, jeśli instalator jest w paczce. Alternatywnie rozpakuj wewnętrzny `WT-Blog-Generator-win-x64.zip` do stałego folderu i uruchom `WheelContentManager.Desktop.exe`.
-5. Zachowaj wszystkie pliki paczki razem, w tym podfolder `Worker`. Wersja samodzielna zawiera .NET — nie trzeba instalować SDK.
+1. Wybierz **JR Wheels**, **Concaver Wheels** albo **Vesser Forged**. Przy pierwszym wyborze program pobierze listę galerii i sprawdzi archiwum `/blog`.
+2. Wyszukaj samochód lub felgi i wybierz galerię. Lista pomija wykryte oraz możliwe dopasowania do wpisów na stronie. Lokalny tekst zapisany w poprzedniej wersji nie blokuje galerii.
+3. Kliknij **Otwórz galerię zdjęć**, aby zobaczyć źródło i pobrać wybrane zdjęcia. Podgląd i przycisk **Otwórz zdjęcie** pomagają odnaleźć zdjęcie tej konfiguracji.
+4. Wybierz folder i kliknij **Przygotuj plik do ChatGPT**. Program odświeży szczegóły galerii, sprawdzi aktualne `/blog` i oficjalną kartę modelu, a następnie otworzy folder gotowych plików.
+5. Wrzuć **Wrzuc do ChatGPT.docx** do swojego czatu. Dokument zawiera pełne polecenie, zweryfikowane dane, wymagania PL/EN, klikalne źródła i zdjęcie JPG/PNG, jeśli zostało pobrane. Nie trzeba kopiować oddzielnego polecenia. Zdjęcie jest też osobnym plikiem w folderze. Jeśli formatem zdjęcia jest WebP, dołącz je osobno. Awaria pobrania zdjęcia nie usuwa dokumentu ani linków do galerii.
 
-Paczka jest niepodpisana cyfrowo. Windows może wyświetlić informację o nieznanym wydawcy. Nazwa repozytorium pozostaje `blog`; nazwa programu to WT - Blog Generator.
+Polecenie prosi o dwa niezależne artykuły po 2200–2600 słów. Zawiera kompletne wymagania z dostarczonego [dokumentu redakcyjnego](docs/editorial/Wpisy%20na%20bloga.docx). Nie wymyśla danych niepotwierdzonych. Działanie osobistego ChatGPT zależy od wybranego modelu i dostępnych limitów konta; program nie loguje się do niego i nie wywołuje API.
 
-## Poprawka importu adresów — 0.5.2
+## Sprawdzanie dostępności
 
-ChatGPT czasami zapisuje źródła jako `https\://...`, stosując ucieczkę dwukropka z Markdown w odpowiedzi JSON. Jest to nieprawidłowy JSON, mimo kompletnych artykułów. Import normalizuje taki prefiks do `https://...`, zachowując treść artykułu i prawidłowe literalne backslashe. Pozostałe błędy nadal wymagają poprawy. Kontrole źródeł, duplikatów i długości pozostają aktywne.
+Archiwum wszystkich podstron `/blog` jest pobierane raz dla sprawdzanej marki, a następnie porównywane z całą listą. Lista zapamiętuje datę sprawdzenia i jest szybko dostępna przy kolejnych wejściach. **Sprawdź /blog i odśwież listę** aktualizuje ją na żądanie. Nie są pobierane pełne szczegóły kilku tysięcy galerii naraz; sprawdzenie listy używa dostępnych danych i miniatur, a ostateczna kontrola pełnej galerii i zdjęć odbywa się przed eksportem.
 
-## Gotowe tematy na Pulpicie i prostszy import — 0.5.1
+Potwierdzone i możliwe duplikaty oraz nieudane sprawdzenie archiwum blokują zapis pliku. Aktualna karta modelu musi pasować do wybranej konfiguracji. Pierwsze sprawdzanie stron może trwać kilka minut; przycisk **Anuluj** przerywa operację. Program respektuje robots.txt i limity żądań.
 
-Pulpit pokazuje trzy karty przygotowanych tematów JR / Concaver / Vesser. Kliknięcie tematu od razu otwiera zapisane polecenie w zakładce ChatGPT, bez dodatkowego pobierania i bez API. Po pierwszym przygotowaniu polecenia pozostają w bazie i są dostępne przy następnym wejściu. Autostart i zadanie w tle uzupełniają brakujące marki, gdy komputer jest włączony i konto zalogowane. Przy pierwszym uruchomieniu potrzebne jest pobranie i sprawdzenie źródeł.
+## Pobieranie i aktualizacja
 
-Nowe polecenia proszą o normalne teksty z oznaczeniami [ARTYKUL_PL] / [ARTYKUL_EN], [TYTUL], [INTRO], [TEKST], [ZRODLA] i końcem każdej wersji. Akapity i cudzysłowy można kopiować bez kodowania JSON. Wklej całą odpowiedź i kliknij Zapisz PL i EN. Import starszych odpowiedzi JSON nadal działa: przyjmuje bloki kodu z komentarzem przed/po, dwa osobne obiekty, tablicę, pola PL/EN, małe litery języka, brak warnings i listę akapitów. Normalizuje rzeczywiste nowe linie w stringach JSON oraz dopuszcza końcowe przecinki. Nie dopisuje brakujących tekstów ani zakończeń. Komunikat wskazuje brakujące pole, wersję językową lub pozycję błędu składni; wklejona odpowiedź pozostaje w polu.
+Na GitHubie otwórz najnowsze udane uruchomienie workflow Windows i pobierz **Artifacts → WT-Blog-Generator-Windows**. Rozpakuj ZIP i uruchom **WT-Blog-Generator-Setup.exe**. Przed aktualizacją zakończ starszą wersję programu i jej zadania w tle; po instalacji uruchom komputer ponownie.
 
-Wybór tematu jest natychmiastowy; kontrola aktualnego archiwum i karty modelu nadal odbywa się przed kopiowaniem i importem, dlatego te czynności mogą wymagać oczekiwania. Kontrole duplikatów, źródeł, długości i podobieństwa pozostają obowiązkowe.
+Dane starszej wersji w `%LOCALAPPDATA%\WheelContentManager` pozostają zachowane. Nowy interfejs nie wykorzystuje statusu lokalnego artykułu do blokowania galerii. Usuwany jest dawny autostart, stare zadania są wyłączane, a Worker nie wykonuje automatycznego generowania ani testów AI. Zamknięcie okna kończy program; nie pozostaje ikona zasobnika ani generator w tle. Zapisane sekrety nie są kasowane, lecz nowy panel ich nie używa.
 
-## ChatGPT bez płatnego API — 0.5.0
+## Rozwój i sprawdzenie
 
-Domyślnie, również po aktualizacji starszych ustawień, program używa trybu **ChatGPT**. Pobiera galerie i oficjalne karty modeli, sprawdza wszystkie podstrony /blog oraz ostatnie publikacje i przygotowuje po jednym poleceniu dla JR, Concaver i Vesser. Nie potrzebuje klucza API, modelu ani cen tokenów. Zachowuje autostart, ikonę zasobnika, anulowanie i przygotowanie w tle; powiadomienie systemowe informuje o gotowych poleceniach. Program sam nie generuje tekstów w osobistym koncie ChatGPT.
+Aplikacja jest natywnym WPF na Windows. SDK: .NET 10.0.401. W chmurze użyj istniejącego `/workspace/blog`, bez tworzenia dodatkowego worktree. `bash scripts/setup-cloud.sh` weryfikuje SDK, przywraca zależności z lockfile, buduje rozwiązanie i uruchamia testy. Linux nie uruchamia WPF; workflow Windows buduje instalator i sprawdza Worker.
 
-1. Otwórz zakładkę **ChatGPT** i wybierz **Przygotuj 3 tematy bez API** (lub poczekaj na zadanie w tle).
-2. Wybierz temat i **Kopiuj polecenie do ChatGPT**. Przed kopiowaniem program ponownie sprawdza /blog i odświeża kartę modelu. Potwierdzony lub możliwy duplikat oraz nieudane sprawdzanie blokują przygotowanie polecenia. Otwórz swój czat ChatGPT i wklej polecenie.
-3. Polecenie prosi o dwa niezależne artykuły PL i EN, po 2200–2600 słów, w oznaczonych sekcjach. Jeśli odpowiedź została ucięta, poproś ChatGPT o kontynuację i połącz cały wynik.
-4. Wybierz odpowiadający temat w programie, kliknij **Wklej odpowiedź ze schowka**, potem **Zapisz PL i EN z odpowiedzi**. Obsługiwany jest również wcześniejszy JSON, także w bloku kodu. Import ponownie sprawdza /blog i kartę modelu, waliduje długość, źródła i podobieństwo tekstów, zapisuje oba języki i eksportuje dokumenty.
-5. Przeczytaj uwagi w **Artykułach**, zatwierdź poprawny tekst i przenieś go ręcznie na blog. Po imporcie program uzupełnia listę nowych tematów do trzech. Zaimportowana galeria nie jest ponownie proponowana; teksty oczekują na przegląd w Artykułach.
-
-Polecenia i historia importu są przechowywane w istniejącej bazie SQLite. Nie są nadpisywane poprzednie artykuły, dane ani zapisane sekrety. Błędy długości i źródeł nie są automatycznie uznawane za poprawne; tekst wymaga przeglądu. W tej ścieżce program nie wywołuje AI także przy kontroli lub eksporcie. Płatny tryb API pozostaje opcjonalny: wyłącz pole **ChatGPT — kopiowanie poleceń i wklejanie odpowiedzi** w Ustawieniach i zapisz zmianę, aby świadomie go włączyć. Zakończ pracę starej wersji przed aktualizacją; zalecany jest restart komputera po instalacji.
-
-## Autostart, anulowanie i szybsze pisanie — 0.4.0
-
-Program uruchamia się po zalogowaniu do Windows jako ikona w zasobniku przy zegarze. Dwuklik otwiera panel; zamknięcie okna pozostawia aplikację w tle. Po ukończeniu zestawu trzech artykułów aplikacja wyświetla powiadomienie systemowe (oprócz skonfigurowanej wysyłki SMTP). Autostart panelu można wyłączyć w Ustawieniach. Działa na tym samym zalogowanym koncie, z zachowaniem DPAPI i danych.
-
-Dolny pasek pokazuje aktualny etap także z osobnego Workera. **Anuluj** przerywa bieżące żądania i wstrzymuje automatyczne przygotowanie, również po restarcie, do wybrania **Wznów przygotowanie w tle** na Pulpicie. Gotowe teksty i ukończone wersje językowe pozostają w bazie. Menu ikony pozwala anulować albo zakończyć panel i wstrzymać przygotowanie. Konflikt z działającym Workerem pokazuje status i możliwość anulowania, zamiast okna błędu.
-
-PL i EN powstają równolegle jako niezależne artykuły, z osobnymi kontrolami. Wspólny budżet obejmuje jednoczesne żądania i zachowuje rezerwy kosztu przy anulowaniu po wysłaniu zapytania. Wznawianie pomija ukończone wersje i ponownie używa prawidłowej analizy zdjęć tej galerii. Analiza i kontrola mają mniejsze limity odpowiedzi; długość artykułów pozostaje 2200–2600 słów. Automatyczny cykl pobiera szczegóły wybranego tematu, bez dodatkowego wczytywania trzech innych galerii każdej marki. Sprawdzanie wszystkich podstron /blog i aktualnej karty modelu pozostaje obowiązkowe; pierwszy skan archiwum oraz czas odpowiedzi dostawcy AI mogą nadal trwać.
-
-## Gotowy zestaw przed otwarciem — wersja 0.3.0
-
-Po skonfigurowaniu AI i zapisaniu ustawień program automatycznie rejestruje zadanie przygotowania w tle i uruchamia pierwszą próbę. Okno można zamknąć. Kolejne sprawdzenia następują po zalogowaniu do Windows oraz co 2 godziny, od 06:00. Komputer musi być włączony, konto zalogowane, a dostęp do internetu i AI skonfigurowany. Na wyłączonym komputerze artykuły nie powstaną; pierwszy zestaw trzeba przygotować przed możliwością jego odczytu.
-
-Pulpit pokazuje **3 gotowe artykuły**, po jednym PL + EN dla JR Wheels, Concaver Wheels i Vesser Forged. Gotowe i zatwierdzone teksty pozostają w zestawie do oznaczenia jako **Opublikowany**. Po publikacji w CMS oznacz wpis również w programie; wtedy zadanie uzupełni tylko tę markę. Pełny zestaw nie uruchamia ponownie AI ani pobierania źródeł. Własne edycje nie są zastępowane przez automatyczne odświeżenie listy gotowych tekstów.
-
-Przygotowanie w tle można wyłączyć w **Ustawieniach** i zapisać zmianę. Obowiązują dotychczasowe limity kosztów i tokenów; niepowodzenie jest widoczne na Pulpicie i w Historii. Częściowy zestaw jest wznawiany w tym samym zadaniu i budżecie, a gotowe marki nie są generowane ponownie. Gdy przygotowanie w tle jest włączone, zadanie tygodniowe również uzupełnia zestaw zamiast dokładać kolejne trzy artykuły. Ręczny przycisk „Generuj cykl 3 marek” nadal służy świadomemu przygotowaniu dodatkowego cyklu.
-
-Synchronizacja korzysta z jednego odczytu istniejących galerii na markę zamiast osobnego zapytania dla każdej pozycji. Automatyczne przygotowanie nie sprawdza niepotrzebnych galerii innych marek; pełna kontrola wszystkich podstron `/blog` nadal obowiązuje dla każdej wybieranej galerii. Artykuły nadal mają 2200–2600 słów na język, aktualną kartę produktu i analizę zdjęć.
-
-Nazwa programu i jasnego panelu to **WT - Blog Generator**. Identyfikator instalatora, lokalizacja danych oraz techniczne nazwy plików EXE pozostają zgodne z wcześniejszą instalacją, aby zachować bazę i klucze.
-
-## Aktualizacja do wersji 0.5.2
-
-1. Poczekaj na zakończenie generowania i zamknij program. Worker z Harmonogramu również musi zakończyć pracę.
-2. Pobierz najnowszą zieloną paczkę **WT-Blog-Generator-Windows** z Actions, rozpakuj i uruchom **WT-Blog-Generator-Setup.exe**.
-3. Zainstaluj w dotychczasowym folderze, na tym samym koncie Windows. Nie trzeba odinstalowywać starej wersji.
-4. Uruchom program. Baza, artykuły, klucze API, poczta i historia pozostają w `%LOCALAPPDATA%\WheelContentManager`. Starsze ustawienia długości zmienią się automatycznie na 2200–2600 słów, a eksport zdjęć zostanie wyłączony. Budżet cyklu, ceny i dane poczty są zachowane. Nietknięte wbudowane prompty otrzymają nową wersję; własne edycje pozostają.
-
-Dla wersji przenośnej zastąp całą paczkę programu wraz z podfolderem `Worker` w dotychczasowej lokalizacji; nie mieszaj DLL różnych wersji. Kopię zapasową katalogu danych można wykonać po zamknięciu aplikacji i Workera.
-
-## Pierwsze uruchomienie
-
-Kreator przeprowadza przez cztery kroki. Ustawienia kont i działania można później zmienić; długość artykułów jest ustalona według wpisu referencyjnego.
-
-1. **AI:** wybierz OpenAI lub Anthropic, wprowadź klucz API i pobierz modele. Wybierz model obsługujący obrazy i generowanie JSON. Wpisz aktualne ceny wejścia/wyjścia na milion tokenów w USD. API jest rozliczane osobno od abonamentu ChatGPT lub Claude.
-2. **E-mail:** podaj SMTP, port, STARTTLS lub SSL/TLS, login, hasło aplikacji oraz nadawcę i odbiorcę. Przycisk testowy wysyła rzeczywistą wiadomość do tego odbiorcy.
-3. **Pliki:** wybierz folder eksportu. Domyślnie dokumenty są w `%LOCALAPPDATA%\WheelContentManager\Artykuly`.
-4. **Prompty:** program ma już trzy zweryfikowane szablony przygotowane z dostarczonego `Wpisy na bloga.docx`. Przykłady samochodów i felg zastąpiono zmiennymi, a dane techniczne wymagają potwierdzenia ze źródeł. Możesz je przeczytać i edytować w **Prompty AI**. Import tego samego dokumentu rozpoznaje jego zawartość i przywraca gotowe szablony. Inny dokument zachowuje pełne sekcje JR/CVR/VSR, ale wymaga sprawdzenia przykładów i potwierdzenia przed generowaniem.
-
-**Dokument redakcyjny jest dołączony:** [Wpisy na bloga.docx](docs/editorial/Wpisy%20na%20bloga.docx). Pełne teksty sekcji i opis adaptacji znajdują się w `docs/editorial`. Aktualizacja dodaje nową wersję do rozpoznanych, nietkniętych starszych szablonów wbudowanych; własne edycje użytkownika pozostają zachowane. „Przywróć domyślny” zawsze przywraca aktualny szablon z dokumentu, zachowując historię.
-
-Zmienne szablonu: `{CAR_MAKE}`, `{CAR_MODEL}`, `{CAR_VERSION}`, `{WHEEL_BRAND}`, `{WHEEL_MODEL}`, `{WHEEL_FINISH}`, `{FRONT_SIZE}`, `{REAR_SIZE}`, `{AVAILABLE_SIZES}`, `{PRODUCT_URL}`, `{GALLERY_URL}`, `{VERIFIED_CERTIFICATIONS}`, `{PHOTO_ANALYSIS}`, `{VERIFIED_PRODUCT_DETAILS}`. Ich wartości są przekazywane jako dane JSON; dane witryn nie stają się nadrzędnymi instrukcjami AI.
-
-## Codzienna praca
-
-- **Sprawdź galerie** wykrywa wszystkie wpisy list, respektuje paginację i uzupełnia szczegóły trzech najnowszych niewykorzystanych konfiguracji z podanym modelem felg dla każdej marki. Pozostałe szczegóły pobierane są na żądanie — nie ma potrzeby wykonywania tysięcy zapytań przy pierwszej synchronizacji.
-- W **Galeriach** wybierz samochód i kliknij **Pobierz szczegóły i zdjęcia**. Sprawdź dane, źródła i przypisanie osi. Nieznane ET, PCD, wersja samochodu czy homologacja pozostają nieznane.
-- Po ręcznej korekcie potwierdź źródło parametrów i zapisz. Nie zgaduj brakujących danych. W najnowszych galeriach Concaver w dniu inspekcji brakowało nazwy felg; program raportuje ten stan.
-- Domyślnie eksport zawiera same teksty. Jeśli włączysz opcjonalny eksport zdjęć, potwierdź prawo do ich użycia. Zdjęcia źródłowe są pobierane do analizy AI; eksport zdjęć jest ograniczony do tych z potwierdzonym prawem użycia.
-- **Test AI bez wykorzystania galerii** wykonuje prawdziwe płatne zapytania, ale nie zapisuje artykułu, nie zużywa galerii i nie wysyła maila. Wynik można przeczytać i skopiować.
-- **Zaproponuj tematy** na Pulpicie pobiera ostatnie dziesięć wpisów każdej marki, uwzględnia gotowe lokalne artykuły i pokazuje uzasadnienie. Cykl używa tej samej kolejności i przelicza ją po każdym artykule, aby różnicować modele felg. Sugestia nie zastępuje pełnej kontroli duplikatów na wszystkich podstronach `/blog`.
-- Przed każdym generowaniem program ponownie pobiera oficjalną kartę produktu i potwierdza model. Opis, rozmiary i ewentualne certyfikaty trafiają do AI jako dane ze źródłami. Brak karty lub opis innego modelu blokuje generowanie. Nazwy konfiguracji i potwierdzone parametry służą naturalnej treści dla wyszukiwarek, bez zgadywania danych.
-- **Generuj cykl 3 marek** wybiera niewykorzystane galerie, analizuje zdjęcia i generuje osobno PL oraz EN. Każdy język ma kontrolę programistyczną i dodatkowy audyt AI. Stała długość w interfejsie to 2200–2600 słów treści głównej na każdy język, zgodnie ze wskazanym wpisem Nissan Z / SL03 (2314 słów samej treści głównej). Błędne lub brakujące wersje nie mają statusu „Gotowy”.
-- Edytuj tekst w **Artykułach**. Każdy zapis tworzy kolejną wersję. Eksport wybranego języka lub obu tworzy DOCX, HTML, TXT, metadane i folder zdjęć.
-- **Zatwierdź** oznacza świadomą akceptację redakcyjną. **Oznacz jako opublikowany** zmienia wyłącznie lokalny status.
-
-## Automatyzacja Windows
-
-W zakładce **Harmonogram** ustaw dzień i godzinę, liczbę artykułów na markę oraz limit poprawiania. Domyślnie jest to poniedziałek 08:00 i jeden artykuł na markę. Tryb ręczny pozwala zapisać po jednej konkretnej galerii na markę; tryb automatyczny obsługuje większą liczbę artykułów. Kliknij **Zastosuj w Harmonogramie Windows**.
-
-Worker działa przy zamkniętym interfejsie. Komputer musi być włączony, a konto Windows zalogowane. Zadanie używa `InteractiveToken`, sekretów DPAPI tego konta, `StartWhenAvailable` i `IgnoreNew`. Program nie obiecuje działania przy wyłączonym komputerze ani po wylogowaniu. Ustawianie pracy na niezalogowanym koncie wymaga osobnej konfiguracji konta zadania i bezpiecznego dostępu do jego sekretów.
-
-Cykl tygodniowy ma trwały identyfikator tygodnia, blokadę równoległego wykonania i historię postępu. Worker zwraca kod błędu przy niepełnym cyklu lub niedostarczonym powiadomieniu. Harmonogram może wznowić zadanie po 30 minutach, w granicach ustawionego limitu prób. Ponowne uruchomienie nie generuje drugi raz ukończonego cyklu; nieukończone artykuły można wznowić. Ponowne generowanie gotowej galerii wymaga świadomego polecenia użytkownika.
-
-Zbiorczy mail sukcesu jest wysyłany dopiero po kompletnych artykułach trzech marek z obiema wersjami. W przeciwnym razie powstaje raport częściowego wykonania. Przy niepewnym wyniku SMTP program nie ponawia automatycznie wiadomości, aby nie stworzyć duplikatu. Sprawdź wtedy skrzynkę i w ekranie Historia potwierdź odbiór albo świadomie ponów wybrane powiadomienie. SMTP nie zapewnia transakcji wspólnej z SQLite.
-
-Worker można uruchomić ręcznie:
-
-```powershell
-.\Worker\WheelContentManager.Worker.exe --run-weekly
-.\Worker\WheelContentManager.Worker.exe --sync
-.\Worker\WheelContentManager.Worker.exe --diagnose
-.\Worker\WheelContentManager.Worker.exe --dry-run 123
-```
-
-## Dane i bezpieczeństwo
-
-Baza SQLite, pobrane zdjęcia, profile źródeł, historia i zaszyfrowane sekrety są w `%LOCALAPPDATA%\WheelContentManager`. Klucze nigdy nie są zapisywane do tekstowych ustawień ani repozytorium. DPAPI wymaga tego samego konta Windows. Puste pole klucza lub hasła zachowuje dotychczasowy sekret.
-
-Wykonuj kopię katalogu danych po zamknięciu aplikacji i Workera. Przed odinstalowaniem wyłącz zadanie w Harmonogramie. Odinstalowanie nie usuwa artykułów ani bazy.
-
-Koszty kontrolowane są przez limity tokenów, konserwatywną rezerwę wywołania i ceny wpisane przez użytkownika. Wykorzystanie tokenów jest zapisane w zadaniach i wersjach. Po zerwaniu połączenia bez odpowiedzi pozostaje rezerwa — nie jest zakładany zerowy koszt. Rzeczywisty rachunek określa dostawca API.
-
-## Kompilacja ze źródeł
-
-Zainstaluj Visual Studio z obsługą .NET 10 i aplikacji desktopowych WPF (np. Visual Studio 2026) oraz SDK zgodny z `global.json`. Otwórz `WheelContentManager.sln`.
-
-```powershell
-dotnet restore WheelContentManager.sln --locked-mode
-dotnet build WheelContentManager.sln -c Release --no-restore
-dotnet test tests/WheelContentManager.Tests -c Release
-.\scripts\publish-windows.ps1
-```
-
-Instalator: po publikacji uruchom kompilator Inno Setup 6 dla `scripts\installer.iss`. GitHub Actions wykonuje kompilację, testy, diagnostykę Workera i budowanie paczki oraz instalatora na Windows.
-
-Migracje bazy uruchamiają się automatycznie przy starcie. Do tworzenia kolejnych migracji:
-
-```powershell
-dotnet tool restore
-dotnet ef migrations add NazwaMigracji --project src/WheelContentManager.Infrastructure
-```
-
-## Sprawdzone i niesprawdzone
-
-Aktualne dowody walidacji oraz ograniczenia opisuje [docs/WERYFIKACJA.md](docs/WERYFIKACJA.md). Kompilacja WPF na Linux nie dowodzi, że interfejs działa na Windows 11. Testy mock AI nie dowodzą jakości rzeczywistych artykułów. Pełny scenariusz odbioru wymaga dokumentu redakcyjnego, skonfigurowanych API/SMTP i próby na Windows.
-
-Szczegóły zbadanych witryn: [docs/ZRODLA.md](docs/ZRODLA.md).
-
-## Praca w Codex
-
-Każde zadanie działa w osobnym środowisku. Używaj istniejącej kopii `/workspace/blog`; nie twórz dodatkowego worktree bez wyraźnej prośby. `scripts/setup-cloud.sh` przygotowuje SDK, zależności, kompilację i testy. WPF, DPAPI i Harmonogram Windows wymagają Windows; w chmurze Linux można pracować nad kodem, bazą i testami usług.
-
-Przed wyborem galerii i wywołaniem AI program sprawdza wszystkie podstrony `/blog` danej marki oraz treść wpisów. Wspólny adres galerii lub zdjęcia blokuje nowy artykuł. Zgodność modelu samochodu i felg oznacza możliwy duplikat i również zatrzymuje generowanie do sprawdzenia. Status oraz adres istniejącego wpisu są widoczne przy galerii. Błąd sieci, zmiana HTML lub niepełna paginacja nie są uznawane za brak artykułu. Po ścisłym dopasowaniu kontrola może zakończyć się od razu, ponieważ publikacja tej galerii jest już potwierdzona. Brak dopasowania wymaga kompletnego skanowania. Wyniki pełnego skanowania i potwierdzone dopasowania są przechowywane w pamięci przez maksymalnie 15 minut; pierwsza kontrola może potrwać kilka minut. Automatyczny wybór przechodzi do kolejnej galerii, gdy wykryje opublikowany wpis. Regenerowanie i tryb testowy również korzystają z tej kontroli.
-
-Diagnostyka pojedynczej galerii bez kosztu AI: `Worker/WheelContentManager.Worker.exe --check-blog <ID galerii>`.
+Stare modele, migracje i testy pozostają w bibliotekach dla zgodności danych. Szczegóły źródeł i weryfikacji: [ZRODLA.md](docs/ZRODLA.md), [WERYFIKACJA.md](docs/WERYFIKACJA.md). Interaktywne działanie Windows i wrzucenie dokumentu do osobistego ChatGPT wymagają ręcznej weryfikacji.

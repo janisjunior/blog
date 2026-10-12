@@ -5,7 +5,7 @@
 - Zainstalowano oficjalny SDK .NET 10.0.401; SHA512 archiwum zgadza się z metadanymi wydania Microsoft.
 - `scripts/setup-cloud.sh`: odtwarzanie zależności z lockfile, kompilacja wszystkich siedmiu projektów (również WPF przez EnableWindowsTargeting), testy.
 - Kompilacja: 0 błędów, 0 ostrzeżeń.
-- 133 testy: 133 zaliczone, 0 niezaliczonych, 0 pominiętych. Testy sprawdzają migracje SQLite, deduplikację, korekty, osie i rozmiary, pełne sekcje DOCX, prompty, JSON, intro, jakość, podobieństwo, kontrakty HTTP OpenAI/Anthropic, generowanie PL/EN z mock AI i obrazami, ograniczenia prób/kosztów, brak zużycia galerii w dry-run, historię regenerowania, dokumenty i zdjęcia w DOCX/HTML/TXT/ZIP, XML harmonogramu, blokadę procesów, warunki pełnego powiadomienia oraz jego niepewny stan i ręczne potwierdzenie.
+- 138 testów: 138 zaliczone, 0 niezaliczonych, 0 pominiętych. Testy sprawdzają migracje SQLite, deduplikację, korekty, osie i rozmiary, pełne sekcje DOCX, prompty, JSON, intro, jakość, podobieństwo, kontrakty HTTP OpenAI/Anthropic, generowanie PL/EN z mock AI i obrazami, ograniczenia prób/kosztów, brak zużycia galerii w dry-run, historię regenerowania, dokumenty i zdjęcia w DOCX/HTML/TXT/ZIP, XML harmonogramu, blokadę procesów, warunki pełnego powiadomienia oraz jego niepewny stan i ręczne potwierdzenie.
 - Testy dokumentu: oryginalny DOCX, kompletność wszystkich linii wymagań, dynamiczne dane galerii, brak wycieku konfiguracji przykładowych, gotowe szablony przy instalacji, idempotentny import, rozpoznawanie treści po SHA256 oraz aktualizacja bez nadpisania edycji użytkownika.
 - Testy /blog: wszystkie trzy rzeczywiste struktury HTML, paginacja, wspólne zdjęcia, możliwy duplikat, pomijanie nawigacji i polecanych wpisów, błąd sieci i brak kosztu AI przy blokadzie. Test pełnego klienta HTTP wykrywa wpis z drugiej strony i sprawdza, że niepełny skan nie trafia do cache.
 - Testy na lokalnych fragmentach rzeczywistego HTML wszystkich trzech marek. Oddzielna syntetyczna próbka nie jest przedstawiana jako źródło produkcyjne.
@@ -75,3 +75,9 @@ W trybie ChatGPT zestaw trzech oznacza trzy nowe tematy do przygotowania, niezal
 ## Zapis adresów w odpowiedzi — 0.5.2
 
 Parser normalizuje niepoprawne prefiksy URL z Markdown (https\:// oraz http\://) do prawidłowego JSON. Testy potwierdzają zachowanie obu tekstów, poprawne źródła oraz brak zmiany prawidłowych literalnych backslashy i brak automatycznej naprawy innych nieznanych sekwencji. Pełna odpowiedź użytkownika została sprawdzona lokalnie, bez publikowania jej treści w repozytorium i bez AI.
+
+## Uproszczony program — 0.6.0
+
+Testy potwierdzają: lokalny artykuł z Used=true nie blokuje listy ani eksportu; eksport tworzy DOCX i TXT z pełnym zadaniem, aktywnymi relacjami hyperlink galerii i produktu oraz osadzonym obrazem; powtarzalny eksport nie wywołuje AI ani nie tworzy artykułu; publikacja i możliwy duplikat na stronie blokują listę i plik; błąd archiwum nie tworzy sprawdzonej listy. Test faktycznego crawlera sprawdza wszystkie strony przy przygotowaniu archiwum nawet przy dopasowaniu na pierwszej stronie oraz brak kolejnych pobrań HTTP podczas porównywania galerii.
+
+GUI ma tylko wybór marki, wyszukiwanie galerii, podgląd i linki oraz eksport pliku. Stary kreator konfiguracji został usunięty. Autostart i stare zadania są wyłączane, a Worker ignoruje dawne polecenia automatycznego generowania i dry-run. Dane i migracje zachowują zgodność. Interaktywny wygląd WPF i automatyczne wykonanie zadania przez osobiste ChatGPT nie były uruchamiane w Linux; potwierdzono kompilację i strukturę dokumentu.

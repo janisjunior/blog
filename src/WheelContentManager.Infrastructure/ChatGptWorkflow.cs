@@ -53,14 +53,14 @@ public sealed partial class ContentService
         using var operation = OperationSession.Start(paths, "Przygotowanie polecenia do ChatGPT", ct);
         return await BuildChatGptTopicAsync(galleryId, operation.Progress(null), operation.Token, fresh: true);
     }
-    private async Task<ChatGptTopic> BuildChatGptTopicAsync(long galleryId, IProgress<string>? progress, CancellationToken ct, bool fresh = false)
+    private async Task<ChatGptTopic> BuildChatGptTopicAsync(long galleryId, IProgress<string>? progress, CancellationToken ct, bool fresh = false, bool allowLocalArticle = false)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         var basic = await db.Galleries.AsNoTracking().SingleAsync(g => g.Id == galleryId, ct);
         if (!basic.DetailsLoaded) await LoadDetailsInternalAsync(galleryId, ct);
         var gallery = await db.FullGalleries.SingleAsync(g => g.Id == galleryId, ct);
         if (!gallery.Complete || !gallery.Sources.Any(f => f.Field == "CarModel" && f.Confirmed) || !gallery.Sources.Any(f => f.Field == "WheelModel" && f.Confirmed)) throw new InvalidOperationException("Potwierdź samochód i model felg w źródłach galerii.");
-        if (gallery.Used) throw new InvalidOperationException("Ta galeria ma już lokalny artykuł. Wybierz inny temat.");
+        if (gallery.Used && !allowLocalArticle) throw new InvalidOperationException("Ta galeria ma już lokalny artykuł. Wybierz inny temat.");
         progress?.Report("Sprawdzanie wszystkich podstron /blog: " + gallery.Vehicle.Display);
         var check = await CheckBlogAsync(galleryId, ct, fresh);
         if (check.Published || check.PossibleDuplicate) throw new InvalidOperationException(check.Message + ": " + check.Url);

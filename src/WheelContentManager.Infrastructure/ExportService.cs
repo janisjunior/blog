@@ -40,7 +40,12 @@ public sealed class ExportService
     {
         using var doc = WordprocessingDocument.Create(file, WordprocessingDocumentType.Document);
         var main = doc.AddMainDocumentPart(); main.Document = new(new Body());
-        foreach (var line in text.Split('\n')) main.Document.Body!.Append(new Paragraph(new Run(new Text(line) { Space = SpaceProcessingModeValues.Preserve })));
+        foreach (var line in text.Split('\n')) main.Document!.Body!.Append(new Paragraph(new Run(new Text(line) { Space = SpaceProcessingModeValues.Preserve })));
+        AppendImages(main, photos, ct);
+        main.Document!.Save();
+    }
+    internal static void AppendImages(MainDocumentPart main, IReadOnlyList<GalleryImage> photos, CancellationToken ct)
+    {
         uint id = 1;
         foreach (var photo in photos)
         {
@@ -52,9 +57,9 @@ public sealed class ExportService
             var relation = main.GetIdOfPart(part);
             var picture = new PIC.Picture(new PIC.NonVisualPictureProperties(new PIC.NonVisualDrawingProperties { Id = id, Name = Path.GetFileName(path) }, new PIC.NonVisualPictureDrawingProperties()), new PIC.BlipFill(new D.Blip { Embed = relation }, new D.Stretch(new D.FillRectangle())), new PIC.ShapeProperties(new D.Transform2D(new D.Offset { X = 0, Y = 0 }, new D.Extents { Cx = cx, Cy = cy }), new D.PresetGeometry(new D.AdjustValueList()) { Preset = D.ShapeTypeValues.Rectangle }));
             var inline = new DW.Inline(new DW.Extent { Cx = cx, Cy = cy }, new DW.EffectExtent { LeftEdge = 0, TopEdge = 0, RightEdge = 0, BottomEdge = 0 }, new DW.DocProperties { Id = id++, Name = "Zdjęcie galerii" }, new DW.NonVisualGraphicFrameDrawingProperties(new D.GraphicFrameLocks { NoChangeAspect = true }), new D.Graphic(new D.GraphicData(picture) { Uri = "http://schemas.openxmlformats.org/drawingml/2006/picture" })) { DistanceFromTop = 0, DistanceFromBottom = 0, DistanceFromLeft = 0, DistanceFromRight = 0 };
-            main.Document.Body!.Append(new Paragraph(new Run(new Drawing(inline))));
+            main.Document!.Body!.Append(new Paragraph(new Run(new Drawing(inline))));
         }
-        main.Document.Save();
+        main.Document!.Save();
     }
     private static (long Width, long Height) ImageSize(string path)
     {

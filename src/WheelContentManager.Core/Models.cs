@@ -203,8 +203,11 @@ public sealed record BlogCheck(bool Published, bool PossibleDuplicate, string? U
 public record RecentBlogPost(string Url, string Title, DateTimeOffset? Published, IReadOnlyList<string> WheelModels);
 public interface IBlogPublicationChecker
 {
+    Task PrepareArchiveAsync(WheelBrand brand, CancellationToken ct) => Task.CompletedTask;
     Task<BlogCheck> CheckAsync(Gallery gallery, CancellationToken ct);
     Task<BlogCheck> CheckFreshAsync(Gallery gallery, CancellationToken ct) => CheckAsync(gallery, ct);
     Task<IReadOnlyList<RecentBlogPost>> RecentAsync(WheelBrand brand, CancellationToken ct);
 }
 public record TopicSuggestion(Gallery Gallery, string Reason, string? LatestPostUrl);
+
+public sealed record GalleryPromptPackage(string Folder, string Document, string Instructions, string? Photo, string GalleryUrl, string ProductUrl, string Prompt);

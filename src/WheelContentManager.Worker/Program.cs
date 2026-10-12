@@ -1,6 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using WheelContentManager.Infrastructure;
 
+// Automatic article preparation belongs to older versions; the app now exports selected prompts only.
+if (args.Contains("--prepare-stock") || args.Contains("--run-weekly") || args.Contains("--dry-run")) return 0;
 var rootIndex = Array.IndexOf(args, "--data-root");
 var root = rootIndex >= 0 && rootIndex + 1 < args.Length ? args[rootIndex + 1] : null;
 using var host = Bootstrap.Create(args, root);

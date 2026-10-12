@@ -7,6 +7,8 @@ namespace WheelContentManager.GalleryProviders;
 public sealed record PublishedPost(string Url, string Text, HashSet<string> References);
 public sealed class BlogPublicationChecker(SiteClient client) : IBlogPublicationChecker
 {
+    private sealed record TokenizedPost(string Text);
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<PublishedPost, TokenizedPost> normalizedPosts = new();
     private readonly Dictionary<WheelBrand, (DateTimeOffset Time, IReadOnlyList<PublishedPost> Posts)> cache = [];
     private readonly Dictionary<string, (DateTimeOffset Time, BlogCheck Result)> confirmed = [];
     private readonly Dictionary<WheelBrand, (DateTimeOffset Time, IReadOnlyList<RecentBlogPost> Posts)> recent = [];
@@ -43,13 +45,29 @@ public sealed class BlogPublicationChecker(SiteClient client) : IBlogPublication
         foreach (var key in confirmed.Keys.Where(key => key.StartsWith(gallery.Brand + ":", StringComparison.Ordinal)).ToArray()) confirmed.Remove(key);
         return CheckAsync(gallery, ct);
     }
+    public async Task PrepareArchiveAsync(WheelBrand brand, CancellationToken ct)
+    {
+        cache.Remove(brand);
+        foreach (var key in confirmed.Keys.Where(key => key.StartsWith(brand + ":", StringComparison.Ordinal)).ToArray()) confirmed.Remove(key);
+        var posts = await LoadArchiveAsync(brand, null, ct);
+        cache[brand] = (DateTimeOffset.UtcNow, posts);
+    }
     public async Task<BlogCheck> CheckAsync(Gallery gallery, CancellationToken ct)
     {
         var key = gallery.Brand + ":" + Normalization.Url(gallery.Url);
         if (confirmed.TryGetValue(key, out var previous) && DateTimeOffset.UtcNow - previous.Time <= TimeSpan.FromMinutes(15)) return previous.Result;
         if (!cache.TryGetValue(gallery.Brand, out var snapshot) || DateTimeOffset.UtcNow - snapshot.Time > TimeSpan.FromMinutes(15))
         {
-            var host = gallery.Brand switch { WheelBrand.JR => "jr-wheels.com", WheelBrand.Concaver => "concaverwheels.com", _ => "vesserforged.com" };
+            var posts = await LoadArchiveAsync(gallery.Brand, gallery, ct);
+            if (confirmed.TryGetValue(key, out var match)) return match.Result;
+            snapshot = (DateTimeOffset.UtcNow, posts); cache[gallery.Brand] = snapshot;
+        }
+        var result = Match(gallery, snapshot.Posts);
+        return result with { Message = result.Message + $" · sprawdzono {snapshot.Posts.Count} wpisów" };
+    }
+    private async Task<IReadOnlyList<PublishedPost>> LoadArchiveAsync(WheelBrand brand, Gallery? gallery, CancellationToken ct)
+    {
+            var host = brand switch { WheelBrand.JR => "jr-wheels.com", WheelBrand.Concaver => "concaverwheels.com", _ => "vesserforged.com" };
             var queue = new Queue<Uri>(); queue.Enqueue(new($"https://{host}/blog")); var pages = new HashSet<string>(); var urls = new HashSet<string>(); var posts = new List<PublishedPost>();
             while (queue.TryDequeue(out var page))
             {
@@ -63,19 +81,16 @@ public sealed class BlogPublicationChecker(SiteClient client) : IBlogPublication
                     if (IsList(uri)) { if (!pages.Contains(uri.AbsoluteUri)) queue.Enqueue(uri); continue; }
                     if (!urls.Add(uri.AbsoluteUri)) continue;
                     var post = ParsePost(await client.GetAsync(uri, false, ct), uri); posts.Add(post);
-                    var exact = Match(gallery, [post]);
-                    if (exact.Published)
+                    var exact = gallery == null ? null : Match(gallery, [post]);
+                    if (exact?.Published == true)
                     {
                         var found = exact with { Message = exact.Message + " · potwierdzone dopasowanie" };
-                        confirmed[key] = (DateTimeOffset.UtcNow, found); return found;
+                        confirmed[gallery!.Brand + ":" + Normalization.Url(gallery.Url)] = (DateTimeOffset.UtcNow, found); return posts;
                     }
                 }
             }
             if (posts.Count == 0) throw new InvalidOperationException("Nie znaleziono wpisów /blog; nie można potwierdzić braku duplikatu.");
-            snapshot = (DateTimeOffset.UtcNow, posts); cache[gallery.Brand] = snapshot;
-        }
-        var result = Match(gallery, snapshot.Posts);
-        return result with { Message = result.Message + $" · sprawdzono {snapshot.Posts.Count} wpisów" };
+        return posts;
     }
     private static HtmlDocument Document(string html) { var doc = new HtmlDocument(); doc.LoadHtml(html); return doc; }
     private static bool IsList(Uri uri) => Regex.IsMatch(uri.AbsolutePath.TrimEnd('/'), @"^/blog(?:/\d+)?$");
@@ -112,7 +127,7 @@ public sealed class BlogPublicationChecker(SiteClient client) : IBlogPublication
         var car = Tokens(g.Vehicle.Model ?? ""); var wheel = Tokens(g.Specification.Model ?? "");
         foreach (var post in posts)
         {
-            var text = Tokens(post.Text);
+            var text = normalizedPosts.GetValue(post, p => new(Tokens(p.Text))).Text;
             if (car.Trim().Length > 1 && wheel.Trim().Length > 1 && text.Contains(car) && text.Contains(wheel)) return new(false, true, post.Url, "Możliwy duplikat: samochód i felgi — sprawdź wpis");
         }
         return new(false, false, null, "Sprawdzono /blog: nie znaleziono powiązanego wpisu");

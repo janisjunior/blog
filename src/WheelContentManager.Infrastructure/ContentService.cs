@@ -34,7 +34,7 @@ public sealed partial class ContentService(IDbContextFactory<ContentDb> factory,
     {
         using var operation = OperationSession.Start(paths, "Synchronizacja galerii", ct); ct = operation.Token; progress = operation.Progress(progress); return await SyncInternalAsync(progress, ct);
     }
-    private async Task<string> SyncInternalAsync(IProgress<string>? progress, CancellationToken ct, bool verifyLoadedBlogs = true, IReadOnlySet<WheelBrand>? onlyBrands = null)
+    private async Task<string> SyncInternalAsync(IProgress<string>? progress, CancellationToken ct, bool verifyLoadedBlogs = true, IReadOnlySet<WheelBrand>? onlyBrands = null, bool strict = false)
     {
         var report = new List<string>();
         foreach (var provider in galleries.Where(p => onlyBrands == null || onlyBrands.Contains(p.Brand)))
@@ -69,7 +69,7 @@ public sealed partial class ContentService(IDbContextFactory<ContentDb> factory,
                 await db.SaveChangesAsync(ct);
             }
             catch (OperationCanceledException) { throw; }
-            catch (Exception e) { var message = provider.Brand.Name() + ": " + SafeError(e); report.Add(message); await LogAsync("Galerie", message, "Błąd", ct); }
+            catch (Exception e) { if (strict) throw; var message = provider.Brand.Name() + ": " + SafeError(e); report.Add(message); await LogAsync("Galerie", message, "Błąd", ct); }
         }
         var result = string.Join("\n", report); await LogAsync("Synchronizacja", result, ct: ct); return result;
     }

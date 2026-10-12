@@ -8,8 +8,6 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel vm;
     public MainWindow(MainViewModel vm) { this.vm = vm; InitializeComponent(); DataContext = vm; }
-    private void ApiKeyChanged(object sender, RoutedEventArgs e) => vm.ApiKey = ((PasswordBox)sender).Password;
-    private void SmtpPasswordChanged(object sender, RoutedEventArgs e) => vm.SmtpPassword = ((PasswordBox)sender).Password;
 }
 public sealed class InverseBooleanConverter : IValueConverter
 {

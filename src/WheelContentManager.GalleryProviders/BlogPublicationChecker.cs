@@ -37,6 +37,12 @@ public sealed class BlogPublicationChecker(SiteClient client) : IBlogPublication
         var models = Regex.Matches(title, @"(?i)\b(?:JR|SL|CVR|VSR|VF)[ -]?\d+\b").Select(m => TopicPlanner.Model(m.Value)).Distinct().ToArray();
         return new(uri.AbsoluteUri, title, published, models);
     }
+    public Task<BlogCheck> CheckFreshAsync(Gallery gallery, CancellationToken ct)
+    {
+        cache.Remove(gallery.Brand);
+        foreach (var key in confirmed.Keys.Where(key => key.StartsWith(gallery.Brand + ":", StringComparison.Ordinal)).ToArray()) confirmed.Remove(key);
+        return CheckAsync(gallery, ct);
+    }
     public async Task<BlogCheck> CheckAsync(Gallery gallery, CancellationToken ct)
     {
         var key = gallery.Brand + ":" + Normalization.Url(gallery.Url);

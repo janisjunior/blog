@@ -204,6 +204,7 @@ public record RecentBlogPost(string Url, string Title, DateTimeOffset? Published
 public interface IBlogPublicationChecker
 {
     Task<BlogCheck> CheckAsync(Gallery gallery, CancellationToken ct);
+    Task<BlogCheck> CheckFreshAsync(Gallery gallery, CancellationToken ct) => CheckAsync(gallery, ct);
     Task<IReadOnlyList<RecentBlogPost>> RecentAsync(WheelBrand brand, CancellationToken ct);
 }
 public record TopicSuggestion(Gallery Gallery, string Reason, string? LatestPostUrl);

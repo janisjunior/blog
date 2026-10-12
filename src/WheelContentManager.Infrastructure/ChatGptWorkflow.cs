@@ -59,9 +59,9 @@ public sealed partial class ContentService
     public async Task<ChatGptTopic> PrepareChatGptTopicAsync(long galleryId, CancellationToken ct)
     {
         using var operation = OperationSession.Start(paths, "Przygotowanie polecenia do ChatGPT", ct);
-        return await BuildChatGptTopicAsync(galleryId, operation.Progress(null), operation.Token);
+        return await BuildChatGptTopicAsync(galleryId, operation.Progress(null), operation.Token, fresh: true);
     }
-    private async Task<ChatGptTopic> BuildChatGptTopicAsync(long galleryId, IProgress<string>? progress, CancellationToken ct)
+    private async Task<ChatGptTopic> BuildChatGptTopicAsync(long galleryId, IProgress<string>? progress, CancellationToken ct, bool fresh = false)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         var basic = await db.Galleries.AsNoTracking().SingleAsync(g => g.Id == galleryId, ct);
@@ -70,7 +70,7 @@ public sealed partial class ContentService
         if (!gallery.Complete || !gallery.Sources.Any(f => f.Field == "CarModel" && f.Confirmed) || !gallery.Sources.Any(f => f.Field == "WheelModel" && f.Confirmed)) throw new InvalidOperationException("Potwierdź samochód i model felg w źródłach galerii.");
         if (gallery.Used) throw new InvalidOperationException("Ta galeria ma już lokalny artykuł. Wybierz inny temat.");
         progress?.Report("Sprawdzanie wszystkich podstron /blog: " + gallery.Vehicle.Display);
-        var check = await CheckBlogAsync(galleryId, ct);
+        var check = await CheckBlogAsync(galleryId, ct, fresh);
         if (check.Published || check.PossibleDuplicate) throw new InvalidOperationException(check.Message + ": " + check.Url);
         var template = await prompts.CurrentAsync(gallery.Brand, ct);
         if (!template.EditorialDocumentVerified) throw new InvalidOperationException("Potwierdź instrukcję redakcyjną w zakładce Prompty AI.");
@@ -118,7 +118,7 @@ public sealed partial class ContentService
         if (texts.Any(text => !text.Sources.Any(url => Normalization.Url(url) == Normalization.Url(gallery.Url))))
             throw new InvalidOperationException("Odpowiedź nie zawiera źródła wybranej galerii. Wybierz właściwy temat lub poproś ChatGPT o odpowiedź z URL galerii w sources dla obu języków.");
         if (gallery.Used || await db.Articles.AnyAsync(a => a.GalleryId == galleryId, ct)) throw new InvalidOperationException("Ta galeria ma już artykuł w programie.");
-        var check = await CheckBlogAsync(galleryId, ct);
+        var check = await CheckBlogAsync(galleryId, ct, fresh: true);
         if (check.Published || check.PossibleDuplicate) throw new InvalidOperationException("Wpis pojawił się na /blog — import zablokowany: " + check.Url);
         await RefreshProductAsync(gallery, ct);
         var configuration = await settings.LoadAsync(ct);

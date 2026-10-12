@@ -118,12 +118,12 @@ public sealed partial class ContentService(IDbContextFactory<ContentDb> factory,
         row.DetailsLoaded = true; row.MissingData = detail.MissingData; row.LastChecked = DateTimeOffset.UtcNow; row.ThumbnailUrl ??= row.Images.FirstOrDefault()?.Url;
         await db.SaveChangesAsync(ct);
     }
-    public async Task<BlogCheck> CheckBlogAsync(long id, CancellationToken ct)
+    public async Task<BlogCheck> CheckBlogAsync(long id, CancellationToken ct, bool fresh = false)
     {
         await using var db = await factory.CreateDbContextAsync(ct); var g = await db.FullGalleries.SingleAsync(x => x.Id == id, ct);
         try
         {
-            var result = await blog.CheckAsync(g, ct); g.BlogCheckedAt = DateTimeOffset.UtcNow; g.BlogStatus = result.Message; g.ExistingBlogUrl = result.Url; g.BlogBlocked = result.Published || result.PossibleDuplicate; await db.SaveChangesAsync(ct); return result;
+            var result = fresh ? await blog.CheckFreshAsync(g, ct) : await blog.CheckAsync(g, ct); g.BlogCheckedAt = DateTimeOffset.UtcNow; g.BlogStatus = result.Message; g.ExistingBlogUrl = result.Url; g.BlogBlocked = result.Published || result.PossibleDuplicate; await db.SaveChangesAsync(ct); return result;
         }
         catch (Exception e) when (e is not OperationCanceledException || !ct.IsCancellationRequested)
         {

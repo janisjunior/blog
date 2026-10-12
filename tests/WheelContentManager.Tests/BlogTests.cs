@@ -44,6 +44,19 @@ public class BlogTests
         var match = await checker.CheckAsync(g, default); Assert.True(match.Published); Assert.EndsWith("/blog/second", match.Url);
         Assert.Contains("/blog?page=1", handler.Requests); var count = handler.Requests.Count; await checker.CheckAsync(g, default); Assert.Equal(count, handler.Requests.Count);
     }
+    [Theory][InlineData(false)][InlineData(true)]
+    public async Task FreshCheckDoesNotTrustCachedAbsenceOrCachedConfirmedMatch(bool initiallyPublished)
+    {
+        using var handler = new BlogHandler { FirstMatches = initiallyPublished, SecondMatches = false };
+        using var http = new HttpClient(handler); var checker = new BlogPublicationChecker(new SiteClient(http));
+        var gallery = Fixtures.Gallery(); gallery.Images = [new() { Url = "https://jr-wheels.com/matched.jpg" }];
+        Assert.Equal(initiallyPublished, (await checker.CheckAsync(gallery, default)).Published);
+        handler.FirstMatches = !initiallyPublished; var before = handler.Requests.Count;
+        Assert.Equal(initiallyPublished, (await checker.CheckAsync(gallery, default)).Published);
+        Assert.Equal(before, handler.Requests.Count);
+        Assert.Equal(!initiallyPublished, (await checker.CheckFreshAsync(gallery, default)).Published);
+        Assert.True(handler.Requests.Count > before);
+    }
     [Fact] public async Task ConfirmedPublicationDoesNotNeedUnrelatedUnavailableOlderPages()
     {
         using var handler = new BlogHandler { FirstMatches = true, FailSecond = true }; using var http = new HttpClient(handler); var checker = new BlogPublicationChecker(new SiteClient(http));
@@ -67,7 +80,7 @@ public class BlogTests
 
 internal sealed class BlogHandler : HttpMessageHandler
 {
-    public bool FirstMatches { get; set; } public bool FailSecond { get; set; } public List<string> Requests { get; } = [];
+    public bool FirstMatches { get; set; } public bool SecondMatches { get; set; } = true; public bool FailSecond { get; set; } public List<string> Requests { get; } = [];
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
         var path = request.RequestUri!.PathAndQuery; Requests.Add(path);
@@ -77,7 +90,7 @@ internal sealed class BlogHandler : HttpMessageHandler
             "/blog" => "<a href='/blog/first'>first</a><a href='/blog?page=1'>older</a>",
             "/blog?page=1" => "<a href='/blog/second'>second</a><a href='/blog'>newer</a>",
             "/blog/first" => FirstMatches ? "<div class='blog-content'><img src='/matched.jpg'></div>" : "<div class='blog-content'>Unrelated entry</div>",
-            "/blog/second" => FailSecond ? "changed HTML" : "<div class='blog-content'><img src='/matched.jpg'></div>",
+            "/blog/second" => FailSecond ? "changed HTML" : SecondMatches ? "<div class='blog-content'><img src='/matched.jpg'></div>" : "<div class='blog-content'>Unrelated entry</div>",
             _ => throw new InvalidOperationException("Unexpected request: " + path)
         };
         return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(html) });

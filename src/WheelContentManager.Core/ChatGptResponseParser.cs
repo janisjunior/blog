@@ -95,6 +95,7 @@ public static class ChatGptResponseParser
     }
     private static string EscapeLineBreaks(string json)
     {
+        json = Regex.Replace(json, @"(?<!\\)(https?)\\:(?=//)", "$1:", RegexOptions.IgnoreCase);
         var result = new StringBuilder(); var quoted = false; var escaped = false;
         foreach (var c in json)
         {

@@ -5,6 +5,22 @@ namespace WheelContentManager.Tests;
 public class ChatGptResponseParserTests
 {
     private static object Text(string language) => new { title = "Tytuł", intro = "Intro", body = "Akapit pierwszy.\n\nAkapit drugi.", language, sources = new[] { "https://jr-wheels.com/gallery/test" } };
+    [Fact] public void MarkdownEscapedUrlColonIsRecoveredWithoutChangingArticleText()
+    {
+        var original = JsonSerializer.Serialize(new[] { Text("PL"), Text("EN") });
+        var broken = original.Replace("https://", @"https\://");
+        var recovered = ChatGptResponseParser.Parse(broken);
+        var expected = ChatGptResponseParser.Parse(original);
+        Assert.Equal(expected[0].Body, recovered[0].Body);
+        Assert.Equal(expected[1].Body, recovered[1].Body);
+        Assert.All(recovered, article => Assert.Equal("https://jr-wheels.com/gallery/test", Assert.Single(article.Sources)));
+    }
+    [Fact] public void ValidLiteralBackslashAndUnrelatedInvalidEscapesAreNotChanged()
+    {
+        var response = JsonSerializer.Serialize(new[] { new { title = "T", intro = "I", body = @"Literal https\://example.test and C:\wheels", language = "PL" }, Text("EN") });
+        Assert.Equal(@"Literal https\://example.test and C:\wheels", ChatGptResponseParser.Parse(response)[0].Body);
+        Assert.Throws<InvalidOperationException>(() => ChatGptResponseParser.Parse("{\"articles\":[{\"body\":\"bad\\q\"}]}"));
+    }
     [Fact] public void MissingWarningsPrefaceAndMultipleCodeBlocksAreAccepted()
     {
         var response = "Oto oba artykuły:\n```json\n" + JsonSerializer.Serialize(Text("pl")) + "\n```\nDruga wersja:\n```json\n" + JsonSerializer.Serialize(Text("en")) + "\n```";

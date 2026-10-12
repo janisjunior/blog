@@ -12,6 +12,10 @@ Aplikacja desktopowa dla Windows 11, przygotowująca artykuły o konfiguracjach 
 
 Paczka jest niepodpisana cyfrowo. Windows może wyświetlić informację o nieznanym wydawcy. Nazwa repozytorium pozostaje `blog`; nazwa programu to WT - Blog Generator.
 
+## Poprawka importu adresów — 0.5.2
+
+ChatGPT czasami zapisuje źródła jako `https\://...`, stosując ucieczkę dwukropka z Markdown w odpowiedzi JSON. Jest to nieprawidłowy JSON, mimo kompletnych artykułów. Import normalizuje taki prefiks do `https://...`, zachowując treść artykułu i prawidłowe literalne backslashe. Pozostałe błędy nadal wymagają poprawy. Kontrole źródeł, duplikatów i długości pozostają aktywne.
+
 ## Gotowe tematy na Pulpicie i prostszy import — 0.5.1
 
 Pulpit pokazuje trzy karty przygotowanych tematów JR / Concaver / Vesser. Kliknięcie tematu od razu otwiera zapisane polecenie w zakładce ChatGPT, bez dodatkowego pobierania i bez API. Po pierwszym przygotowaniu polecenia pozostają w bazie i są dostępne przy następnym wejściu. Autostart i zadanie w tle uzupełniają brakujące marki, gdy komputer jest włączony i konto zalogowane. Przy pierwszym uruchomieniu potrzebne jest pobranie i sprawdzenie źródeł.
@@ -52,7 +56,7 @@ Synchronizacja korzysta z jednego odczytu istniejących galerii na markę zamias
 
 Nazwa programu i jasnego panelu to **WT - Blog Generator**. Identyfikator instalatora, lokalizacja danych oraz techniczne nazwy plików EXE pozostają zgodne z wcześniejszą instalacją, aby zachować bazę i klucze.
 
-## Aktualizacja do wersji 0.5.1
+## Aktualizacja do wersji 0.5.2
 
 1. Poczekaj na zakończenie generowania i zamknij program. Worker z Harmonogramu również musi zakończyć pracę.
 2. Pobierz najnowszą zieloną paczkę **WT-Blog-Generator-Windows** z Actions, rozpakuj i uruchom **WT-Blog-Generator-Setup.exe**.

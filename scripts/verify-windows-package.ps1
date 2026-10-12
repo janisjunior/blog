@@ -43,6 +43,8 @@ try {
     $report.Add('This is one antivirus scan, not a guarantee of safety or a Chrome reputation check. Executables may be unsigned; do not bypass browser or antivirus blocks on this basis.')
 } catch {
     $report.Add("Result: FAILED - $($_.Exception.Message)")
+    $details = ($report -join "`n").Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+    Write-Host "::error::$details"
     throw
 } finally {
     $report | Set-Content $reportPath -Encoding utf8

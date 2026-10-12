@@ -65,10 +65,22 @@ jobs:
           if (!(Test-Path $compiler)) { throw 'Brak kompilatora Inno Setup 6 na runnerze Windows.' }
           & $compiler ./scripts/installer.iss
           if ($LASTEXITCODE -ne 0) { throw 'Nie udało się zbudować instalatora.' }
+      - name: Skan Defender i sumy kontrolne przed udostępnieniem
+        shell: pwsh
+        run: ./scripts/verify-windows-package.ps1
+      - name: Raport kontroli paczki
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WT-Blog-Generator-Security-report
+          path: artifacts/Security-report.txt
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: WT-Blog-Generator-Windows
           path: |
             artifacts/WT-Blog-Generator-win-x64.zip
             artifacts/WT-Blog-Generator-Setup.exe
+            artifacts/Security-report.txt
+            artifacts/SHA256SUMS.txt
           if-no-files-found: error

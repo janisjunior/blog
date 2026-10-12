@@ -22,6 +22,8 @@ Potwierdzone i możliwe duplikaty oraz nieudane sprawdzenie archiwum blokują za
 
 Na GitHubie otwórz najnowsze udane uruchomienie workflow Windows i pobierz **Artifacts → WT-Blog-Generator-Windows**. Rozpakuj ZIP i uruchom **WT-Blog-Generator-Setup.exe**. Przed aktualizacją zakończ starszą wersję programu i jej zadania w tle; po instalacji uruchom komputer ponownie.
 
+Przed udostępnieniem nowej paczki workflow aktualizuje sygnatury Microsoft Defender i skanuje aplikację, instalator oraz ZIP. Niedostępny skaner, błąd skanu lub wykrycie zagrożenia blokują udostępnienie paczki. `Security-report.txt` zawiera wynik skanu i stan podpisów cyfrowych, a `SHA256SUMS.txt` sumy kontrolne instalatora i przenośnego ZIP. Skan nie gwarantuje bezpieczeństwa ani braku ostrzeżeń Chrome; pliki wykonywalne obecnie nie mają podpisu cyfrowego. Jeżeli przeglądarka lub antywirus blokuje pobranie jako niebezpieczne, nie omijaj blokady i nie wyłączaj ochrony.
+
 Dane starszej wersji w `%LOCALAPPDATA%\WheelContentManager` pozostają zachowane. Nowy interfejs nie wykorzystuje statusu lokalnego artykułu do blokowania galerii. Usuwany jest dawny autostart, stare zadania są wyłączane, a Worker nie wykonuje automatycznego generowania ani testów AI. Zamknięcie okna kończy program; nie pozostaje ikona zasobnika ani generator w tle. Zapisane sekrety nie są kasowane, lecz nowy panel ich nie używa.
 
 ## Rozwój i sprawdzenie

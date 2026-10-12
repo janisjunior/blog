@@ -19,7 +19,7 @@ public class ChatGptWorkflowTests
         await env.Content.PrepareReadySetAsync(null, default);
         var topics = await env.Content.ChatGptTopicsAsync(); Assert.Equal(3, topics.Count);
         Assert.Equal(3, topics.Select(t => t.Brand).Distinct().Count()); Assert.Empty(env.Ai.Calls);
-        Assert.All(topics, t => { Assert.Contains("2200–2600", t.Prompt); Assert.Contains("POTWIERDZONE", t.Prompt); Assert.Contains("\"articles\"", t.Prompt); Assert.Contains("fixture.example/product", t.Prompt); });
+        Assert.All(topics, t => { Assert.Contains("2200–2600", t.Prompt); Assert.Contains("POTWIERDZONE", t.Prompt); Assert.Contains("[ARTYKUL_PL]", t.Prompt); Assert.Contains("fixture.example/product", t.Prompt); });
         Assert.True(await env.Content.PreparationCompleteAsync()); Assert.Empty(await env.Content.ArticlesAsync());
         var counts = env.Providers.Select(p => p.Discoveries).ToArray(); await env.Content.PrepareReadySetAsync(null, default);
         Assert.Equal(counts, env.Providers.Select(p => p.Discoveries).ToArray()); Assert.Empty(env.Ai.Calls);
@@ -46,7 +46,7 @@ public class ChatGptWorkflowTests
         Assert.DoesNotContain(await env.Content.ChatGptTopicsAsync(), t => t.GalleryId == topic.GalleryId); Assert.Empty(env.Ai.Calls);
     }
     private static string Response(Gallery gallery) => JsonSerializer.Serialize(new { articles = new[] { Fixtures.ArticleData(gallery), Fixtures.ArticleData(gallery, "EN") } }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
-    [Fact] public async Task ImportSavesBothLanguagesExportsAndKeepsBrandReservedForReviewWithoutAi()
+    [Fact] public async Task ImportSavesBothLanguagesAndRefillsPendingTopicWithoutReusingGallery()
     {
         await using var env = await TestEnvironment.CreateAsync(); await ManualAsync(env); await env.Content.PrepareReadySetAsync(null, default);
         var topic = (await env.Content.ChatGptTopicsAsync())[0]; var gallery = (await env.Content.GalleriesAsync()).Single(g => g.Id == topic.GalleryId);
@@ -55,9 +55,28 @@ public class ChatGptWorkflowTests
         Assert.All(article.Versions, v => { Assert.Equal(0, v.InputTokens); Assert.Equal(0, v.OutputTokens); });
         Assert.NotEmpty(Directory.GetFiles(article.ExportFolder!)); Assert.Empty(env.Ai.Calls);
         await env.Content.PrepareReadySetAsync(null, default); Assert.Equal(2, (await env.Content.ChatGptTopicsAsync()).Count);
+        Assert.False(await env.Content.PreparationCompleteAsync());
+        var nextGallery = Fixtures.Gallery(topic.Brand); nextGallery.Url += "/next"; nextGallery.ExternalId = nextGallery.Url; nextGallery.DetailsLoaded = true;
+        nextGallery.Vehicle.Model = "M2"; foreach (var source in nextGallery.Sources) { source.Url = nextGallery.Url; if (source.Field == "CarModel") source.Value = "M2"; }
+        await using (var db = await env.Factory.CreateDbContextAsync()) { db.Add(nextGallery); await db.SaveChangesAsync(); }
+        await env.Content.PrepareReadySetAsync(null, default);
         Assert.True(await env.Content.PreparationCompleteAsync());
+        Assert.DoesNotContain(await env.Content.ChatGptTopicsAsync(), t => t.GalleryId == gallery.Id);
         await Assert.ThrowsAsync<InvalidOperationException>(() => env.Content.ImportChatGptResponseAsync(gallery.Id, Response(gallery), default));
         Assert.Single(await env.Content.ArticlesAsync());
+    }
+    [Fact] public async Task MarkedTextImportsBothArticlesWithoutJsonOrApi()
+    {
+        await using var env = await TestEnvironment.CreateAsync(); await ManualAsync(env); await env.Content.PrepareReadySetAsync(null, default);
+        var topic = (await env.Content.ChatGptTopicsAsync())[0]; var gallery = (await env.Content.GalleriesAsync()).Single(g => g.Id == topic.GalleryId);
+        string Block(string lang)
+        {
+            var a = Fixtures.ArticleData(gallery, lang);
+            return $"[ARTYKUL_{lang}]\n[TYTUL]\n{a.Title}\n[INTRO]\n{a.Intro}\n[TEKST]\n{a.Body}\n[ZRODLA]\n{gallery.Url}\n[KONIEC_ARTYKUL_{lang}]";
+        }
+        var result = await env.Content.ImportChatGptResponseAsync(gallery.Id, Block("PL") + "\n" + Block("EN"), default);
+        Assert.Equal(2, result.Versions.Count); Assert.Equal(Fixtures.ArticleData(gallery).Body, result.Versions.Single(v => v.Language == "PL").Body);
+        Assert.Empty(env.Ai.Calls);
     }
     [Fact] public async Task ImportBlocksNewPublicationAndApiEntryPointIsDisabled()
     {

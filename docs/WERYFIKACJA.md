@@ -5,7 +5,7 @@
 - Zainstalowano oficjalny SDK .NET 10.0.401; SHA512 archiwum zgadza się z metadanymi wydania Microsoft.
 - `scripts/setup-cloud.sh`: odtwarzanie zależności z lockfile, kompilacja wszystkich siedmiu projektów (również WPF przez EnableWindowsTargeting), testy.
 - Kompilacja: 0 błędów, 0 ostrzeżeń.
-- 122 testy: 122 zaliczone, 0 niezaliczonych, 0 pominiętych. Testy sprawdzają migracje SQLite, deduplikację, korekty, osie i rozmiary, pełne sekcje DOCX, prompty, JSON, intro, jakość, podobieństwo, kontrakty HTTP OpenAI/Anthropic, generowanie PL/EN z mock AI i obrazami, ograniczenia prób/kosztów, brak zużycia galerii w dry-run, historię regenerowania, dokumenty i zdjęcia w DOCX/HTML/TXT/ZIP, XML harmonogramu, blokadę procesów, warunki pełnego powiadomienia oraz jego niepewny stan i ręczne potwierdzenie.
+- 131 testów: 131 zaliczone, 0 niezaliczonych, 0 pominiętych. Testy sprawdzają migracje SQLite, deduplikację, korekty, osie i rozmiary, pełne sekcje DOCX, prompty, JSON, intro, jakość, podobieństwo, kontrakty HTTP OpenAI/Anthropic, generowanie PL/EN z mock AI i obrazami, ograniczenia prób/kosztów, brak zużycia galerii w dry-run, historię regenerowania, dokumenty i zdjęcia w DOCX/HTML/TXT/ZIP, XML harmonogramu, blokadę procesów, warunki pełnego powiadomienia oraz jego niepewny stan i ręczne potwierdzenie.
 - Testy dokumentu: oryginalny DOCX, kompletność wszystkich linii wymagań, dynamiczne dane galerii, brak wycieku konfiguracji przykładowych, gotowe szablony przy instalacji, idempotentny import, rozpoznawanie treści po SHA256 oraz aktualizacja bez nadpisania edycji użytkownika.
 - Testy /blog: wszystkie trzy rzeczywiste struktury HTML, paginacja, wspólne zdjęcia, możliwy duplikat, pomijanie nawigacji i polecanych wpisów, błąd sieci i brak kosztu AI przy blokadzie. Test pełnego klienta HTTP wykrywa wpis z drugiej strony i sprawdza, że niepełny skan nie trafia do cache.
 - Testy na lokalnych fragmentach rzeczywistego HTML wszystkich trzech marek. Oddzielna syntetyczna próbka nie jest przedstawiana jako źródło produkcyjne.
@@ -58,10 +58,16 @@ Autostart panelu używa wpisu HKCU Run i --background; panel ma pojedynczą inst
 
 ## Tryb ChatGPT — 0.5.0
 
-Testy sprawdzają przygotowanie trzech tematów bez modelu, cen i klucza API oraz zerową liczbę wywołań AI; blokadę potwierdzonego i możliwego duplikatu; blokadę po nieudanym sprawdzaniu archiwum i braku potwierdzonej karty; ponowne sprawdzenie przed skopiowaniem i importem; zapis PL/EN, eksport, zerowe tokeny wersji, ochronę istniejącego artykułu i utrzymanie rezerwacji marki dla tekstu oczekującego na przegląd. Sprawdzane są niepełne odpowiedzi JSON i domyślny tryb ChatGPT przy odczycie starszych ustawień.
+Testy sprawdzają przygotowanie trzech tematów bez modelu, cen i klucza API oraz zerową liczbę wywołań AI; blokadę potwierdzonego i możliwego duplikatu; blokadę po nieudanym sprawdzaniu archiwum i braku potwierdzonej karty; ponowne sprawdzenie przed skopiowaniem i importem; zapis PL/EN, eksport, zerowe tokeny wersji, ochronę istniejącego artykułu i uzupełnianie trzech tematów po imporcie bez ponownego użycia galerii. Sprawdzane są niepełne odpowiedzi JSON i domyślny tryb ChatGPT przy odczycie starszych ustawień.
 
 Przygotowanie poleceń nie uruchamia analizy zdjęć przez API. Polecenie zawiera adresy zdjęć i zakazuje wymyślania obserwacji, jeśli ChatGPT nie może ich obejrzeć. Pobieranie i przegląd źródeł nie gwarantują, że użytkownik nie opublikuje wpisu pomiędzy ostatnią kontrolą a ręczną publikacją; przed publikacją warto sprawdzić aktualny stan strony. Interfejs WPF i wklejenie rzeczywistej odpowiedzi w osobistym ChatGPT wymagają ręcznej weryfikacji na Windows. Nie uruchamiano automatyzacji przeglądarki, rzeczywistych wywołań AI ani SMTP.
 
 Import odpowiedzi dla innej galerii jest odrzucany przed zapisem i nie zużywa tematu; oba artykuły muszą wskazywać URL wybranej galerii w sources.
 
 Kontrola przed kopiowaniem i importem unieważnia zarówno pełną migawkę archiwum, jak i pamięć potwierdzonych dopasowań. Testy z rzeczywistym crawlerem i syntetycznym HTTP potwierdzają ponowne pobranie po dodaniu i usunięciu dopasowania, zamiast wykorzystania 15-minutowego cache.
+
+## Import i Pulpit — 0.5.1
+
+Testy potwierdzają import oznaczonych tekstów PL/EN z pełnym zachowaniem treści i zerowymi wywołaniami AI, zgodność z wcześniejszym JSON, komentarzami otaczającymi bloki, oddzielnymi obiektami, tablicami akapitów, brakującymi warnings, rzeczywistymi nowymi liniami i końcowymi przecinkami. Niekompletna wersja, ucięty JSON, brak pola i błędna składnia mają odrębne komunikaty; parser nie dopisuje zakończeń. Karty tematów na Pulpicie otwierają zapisany prompt bez pobierania. Interaktywne sprawdzenie kart i wklejania w WPF pozostaje kontrolą ręczną na Windows.
+
+W trybie ChatGPT zestaw trzech oznacza trzy nowe tematy do przygotowania, niezależnie od już zaimportowanych artykułów. Po imporcie uruchamiane jest uzupełnianie brakującej marki; test potwierdza dobór nowej galerii, bez ponownego proponowania poprzedniej.

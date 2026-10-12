@@ -219,6 +219,7 @@ public partial class MainViewModel : ObservableObject
     }
     [RelayCommand] private void OpenSuggestedGallery() { if (SelectedSuggestion == null) return; SelectedGallery = Galleries.FirstOrDefault(g => g.Id == SelectedSuggestion.Gallery.Id); SelectedTab = 1; }
     [RelayCommand] private Task GenerateCycle() => RunAsync(async () => { Report = await Background((progress, token) => content.RunCycleAsync(false, progress, token)); await RefreshAsync(); Status = "Cykl zakończony — zobacz raport"; MessageBox.Show(Report, "Przygotowanie artykułów zakończone", MessageBoxButton.OK, MessageBoxImage.Information); });
+    [RelayCommand] private void OpenChatGptTopic(ChatGptTopic topic) { SelectedChatGptTopic = topic; SelectedTab = 7; }
     [RelayCommand] private void OpenChatGpt() => SelectedTab = 7;
     [RelayCommand] private Task PrepareChatGpt() => RunAsync(async () =>
     {
@@ -240,8 +241,9 @@ public partial class MainViewModel : ObservableObject
         if (SelectedChatGptTopic == null) throw new InvalidOperationException("Wybierz temat odpowiadający wklejonej odpowiedzi.");
         Article article;
         try { article = await Task.Run(() => content.ImportChatGptResponseAsync(SelectedChatGptTopic.GalleryId, ChatGptResponse, Token), Token); }
-        catch (System.Text.Json.JsonException) { throw new InvalidOperationException("Wklej całą odpowiedź JSON z dwoma artykułami PL i EN. Jeśli ChatGPT przerwał odpowiedź, poproś o dokończenie i połącz cały JSON."); }
+        catch (System.Text.Json.JsonException) { throw new InvalidOperationException("Wklej całą odpowiedź z artykułami PL i EN. Program obsługuje oznaczone teksty i wcześniejszy JSON."); }
         ChatGptResponse = ""; await RefreshAsync(); await UpdatePreparedAsync(); SelectedArticle = Articles.First(a => a.Id == article.Id); SelectedTab = 2;
+        await ConfigureBackgroundAsync();
         Status = "Zapisano PL i EN bez API. Przeczytaj uwagi, zatwierdź i wyeksportuj artykuły.";
     });
     [RelayCommand] private void OpenArticles() => SelectedTab = 2;

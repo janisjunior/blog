@@ -12,15 +12,23 @@ Aplikacja desktopowa dla Windows 11, przygotowująca artykuły o konfiguracjach 
 
 Paczka jest niepodpisana cyfrowo. Windows może wyświetlić informację o nieznanym wydawcy. Nazwa repozytorium pozostaje `blog`; nazwa programu to WT - Blog Generator.
 
+## Gotowe tematy na Pulpicie i prostszy import — 0.5.1
+
+Pulpit pokazuje trzy karty przygotowanych tematów JR / Concaver / Vesser. Kliknięcie tematu od razu otwiera zapisane polecenie w zakładce ChatGPT, bez dodatkowego pobierania i bez API. Po pierwszym przygotowaniu polecenia pozostają w bazie i są dostępne przy następnym wejściu. Autostart i zadanie w tle uzupełniają brakujące marki, gdy komputer jest włączony i konto zalogowane. Przy pierwszym uruchomieniu potrzebne jest pobranie i sprawdzenie źródeł.
+
+Nowe polecenia proszą o normalne teksty z oznaczeniami [ARTYKUL_PL] / [ARTYKUL_EN], [TYTUL], [INTRO], [TEKST], [ZRODLA] i końcem każdej wersji. Akapity i cudzysłowy można kopiować bez kodowania JSON. Wklej całą odpowiedź i kliknij Zapisz PL i EN. Import starszych odpowiedzi JSON nadal działa: przyjmuje bloki kodu z komentarzem przed/po, dwa osobne obiekty, tablicę, pola PL/EN, małe litery języka, brak warnings i listę akapitów. Normalizuje rzeczywiste nowe linie w stringach JSON oraz dopuszcza końcowe przecinki. Nie dopisuje brakujących tekstów ani zakończeń. Komunikat wskazuje brakujące pole, wersję językową lub pozycję błędu składni; wklejona odpowiedź pozostaje w polu.
+
+Wybór tematu jest natychmiastowy; kontrola aktualnego archiwum i karty modelu nadal odbywa się przed kopiowaniem i importem, dlatego te czynności mogą wymagać oczekiwania. Kontrole duplikatów, źródeł, długości i podobieństwa pozostają obowiązkowe.
+
 ## ChatGPT bez płatnego API — 0.5.0
 
 Domyślnie, również po aktualizacji starszych ustawień, program używa trybu **ChatGPT**. Pobiera galerie i oficjalne karty modeli, sprawdza wszystkie podstrony /blog oraz ostatnie publikacje i przygotowuje po jednym poleceniu dla JR, Concaver i Vesser. Nie potrzebuje klucza API, modelu ani cen tokenów. Zachowuje autostart, ikonę zasobnika, anulowanie i przygotowanie w tle; powiadomienie systemowe informuje o gotowych poleceniach. Program sam nie generuje tekstów w osobistym koncie ChatGPT.
 
 1. Otwórz zakładkę **ChatGPT** i wybierz **Przygotuj 3 tematy bez API** (lub poczekaj na zadanie w tle).
 2. Wybierz temat i **Kopiuj polecenie do ChatGPT**. Przed kopiowaniem program ponownie sprawdza /blog i odświeża kartę modelu. Potwierdzony lub możliwy duplikat oraz nieudane sprawdzanie blokują przygotowanie polecenia. Otwórz swój czat ChatGPT i wklej polecenie.
-3. Polecenie prosi o dwa niezależne artykuły PL i EN, po 2200–2600 słów, w jednym JSON. Jeśli odpowiedź została ucięta, poproś ChatGPT o kontynuację i połącz cały wynik.
-4. Wybierz odpowiadający temat w programie, kliknij **Wklej odpowiedź ze schowka**, potem **Zapisz PL i EN z odpowiedzi**. Obsługiwany jest również blok ```json. Import ponownie sprawdza /blog i kartę modelu, waliduje długość, źródła i podobieństwo tekstów, zapisuje oba języki i eksportuje dokumenty.
-5. Przeczytaj uwagi w **Artykułach**, zatwierdź poprawny tekst i przenieś go ręcznie na blog. Dopiero po oznaczeniu **Opublikowany** program uzupełni temat dla tej marki. Zaimportowany tekst oczekujący na przegląd nie powoduje zamówienia kolejnego tematu tej samej marki.
+3. Polecenie prosi o dwa niezależne artykuły PL i EN, po 2200–2600 słów, w oznaczonych sekcjach. Jeśli odpowiedź została ucięta, poproś ChatGPT o kontynuację i połącz cały wynik.
+4. Wybierz odpowiadający temat w programie, kliknij **Wklej odpowiedź ze schowka**, potem **Zapisz PL i EN z odpowiedzi**. Obsługiwany jest również wcześniejszy JSON, także w bloku kodu. Import ponownie sprawdza /blog i kartę modelu, waliduje długość, źródła i podobieństwo tekstów, zapisuje oba języki i eksportuje dokumenty.
+5. Przeczytaj uwagi w **Artykułach**, zatwierdź poprawny tekst i przenieś go ręcznie na blog. Po imporcie program uzupełnia listę nowych tematów do trzech. Zaimportowana galeria nie jest ponownie proponowana; teksty oczekują na przegląd w Artykułach.
 
 Polecenia i historia importu są przechowywane w istniejącej bazie SQLite. Nie są nadpisywane poprzednie artykuły, dane ani zapisane sekrety. Błędy długości i źródeł nie są automatycznie uznawane za poprawne; tekst wymaga przeglądu. W tej ścieżce program nie wywołuje AI także przy kontroli lub eksporcie. Płatny tryb API pozostaje opcjonalny: wyłącz pole **ChatGPT — kopiowanie poleceń i wklejanie odpowiedzi** w Ustawieniach i zapisz zmianę, aby świadomie go włączyć. Zakończ pracę starej wersji przed aktualizacją; zalecany jest restart komputera po instalacji.
 
@@ -44,7 +52,7 @@ Synchronizacja korzysta z jednego odczytu istniejących galerii na markę zamias
 
 Nazwa programu i jasnego panelu to **WT - Blog Generator**. Identyfikator instalatora, lokalizacja danych oraz techniczne nazwy plików EXE pozostają zgodne z wcześniejszą instalacją, aby zachować bazę i klucze.
 
-## Aktualizacja do wersji 0.5.0
+## Aktualizacja do wersji 0.5.1
 
 1. Poczekaj na zakończenie generowania i zamknij program. Worker z Harmonogramu również musi zakończyć pracę.
 2. Pobierz najnowszą zieloną paczkę **WT-Blog-Generator-Windows** z Actions, rozpakuj i uruchom **WT-Blog-Generator-Setup.exe**.

@@ -1,5 +1,5 @@
 #define AppName "WT - Blog Generator"
-#define AppVersion "0.5.0"
+#define AppVersion "0.5.1"
 [Setup]
 AppId={{F33F7BB7-0279-493A-950B-95471820CD71}
 AppName={#AppName}

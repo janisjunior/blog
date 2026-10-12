@@ -18,6 +18,9 @@ public class SmtpTlsDiagnosticsTests
         var request = new CertificateRequest("CN=mail.fixture.example", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
         var names = new SubjectAlternativeNameBuilder(); names.AddDnsName("mail.fixture.example"); request.CertificateExtensions.Add(names.Build());
         using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddHours(1));
+        // Schannel cannot use the ephemeral key created by CreateSelfSigned for server authentication.
+        // Import a test-only PFX with the default persisted key storage; Dispose removes its key.
+        using var serverCertificate = X509CertificateLoader.LoadPkcs12(certificate.Export(X509ContentType.Pfx), null, X509KeyStorageFlags.DefaultKeySet);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
         var commands = new List<string>();
@@ -32,7 +35,7 @@ public class SmtpTlsDiagnosticsTests
                 await writer.WriteAsync("250-fixture\r\n250 STARTTLS\r\n"); await writer.FlushAsync(timeout.Token);
                 commands.Add((await reader.ReadLineAsync(timeout.Token))!); await writer.WriteLineAsync("220 Ready for TLS");
                 using var tls = new SslStream(stream, leaveInnerStreamOpen: true);
-                await tls.AuthenticateAsServerAsync(new SslServerAuthenticationOptions { ServerCertificate = certificate, EnabledSslProtocols = SslProtocols.Tls12 }, timeout.Token);
+                await tls.AuthenticateAsServerAsync(new SslServerAuthenticationOptions { ServerCertificate = serverCertificate, EnabledSslProtocols = SslProtocols.Tls12 }, timeout.Token);
                 using var encryptedReader = new StreamReader(tls, Encoding.ASCII, leaveOpen: true);
                 var command = await encryptedReader.ReadLineAsync(timeout.Token); if (command != null) commands.Add(command);
             }
@@ -47,6 +50,7 @@ public class SmtpTlsDiagnosticsTests
             var error = await Assert.ThrowsAsync<PromptMailNotSentException>(() => env.Services.GetRequiredService<NotificationService>().TestAsync(timeout.Token));
             Assert.Contains("mail.fixture.example", error.Message); Assert.Contains("RemoteCertificate", error.Message);
             Assert.DoesNotContain("synthetic-secret", error.Message);
+            Assert.DoesNotContain("test-only-key", error.Message);
             await server; Assert.DoesNotContain(commands, command => command.StartsWith("AUTH", StringComparison.OrdinalIgnoreCase));
             Assert.Contains(commands, command => command == "STARTTLS");
         }

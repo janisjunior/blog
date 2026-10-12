@@ -146,18 +146,13 @@ public sealed class WeeklyPromptService(IDbContextFactory<ContentDb> factory, Co
         var lastStep = "Kontrola /blog";
         try
         {
-        foreach (var item in batch.Items)
+        var checkProgress = new CallbackProgress(message => { lastStep = message; progress?.Report(message); });
+        var invalid = await content.CheckPromptDeliveriesAsync(batch.Items, timeout.Token, checkProgress);
+        if (invalid.Count > 0)
         {
-            var brandProgress = new CallbackProgress(message => { lastStep = item.Brand.Name() + " — " + message; progress?.Report(lastStep); });
-            brandProgress.Report("Kontrola przed mailem; wiadomość nie została jeszcze wysłana.");
-            var match = await content.CheckPromptDeliveryAsync(item.GalleryId, timeout.Token, brandProgress);
-            var recent = await content.RecentPromptPostsAsync(item.Brand, timeout.Token, brandProgress);
-            if (match.Published || match.PossibleDuplicate || recent.FirstOrDefault()?.WheelModels.Any(m => TopicPlanner.Model(m) == TopicPlanner.Model(item.Model)) == true)
-            {
-                batch.Items.Remove(item); batch.DeliveryCheckedAt = null; await SaveAsync(batch, ct);
-                batch.Status = "Temat pojawił się na /blog — kolejny przebieg przygotuje zastępczą paczkę. Mail nie został wysłany.";
-                await SaveAsync(batch, ct); return false;
-            }
+            batch.Items.RemoveAll(item => invalid.Contains(item.GalleryId)); batch.DeliveryCheckedAt = null;
+            batch.Status = "Temat pojawił się na /blog — kolejny przebieg przygotuje zastępczą paczkę. Mail nie został wysłany.";
+            await SaveAsync(batch, ct); return false;
         }
         batch.LastSiteCheckAt = now; await SaveAsync(batch, ct);
         return true;

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 using HtmlAgilityPack;
 using WheelContentManager.Core;
@@ -9,20 +10,20 @@ public sealed class BlogPublicationChecker(SiteClient client, string? archiveCac
 {
     private sealed record SavedArchive(int Version, DateTimeOffset Time, IReadOnlyList<PublishedPost> Posts);
     private static readonly TimeSpan ArchiveLifetime = TimeSpan.FromMinutes(15);
-    private readonly HashSet<WheelBrand> ignoredDiskBrands = [];
+    private readonly ConcurrentDictionary<WheelBrand, bool> ignoredDiskBrands = new();
     private sealed record TokenizedPost(string Text);
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<PublishedPost, TokenizedPost> normalizedPosts = new();
-    private readonly Dictionary<WheelBrand, (DateTimeOffset Time, IReadOnlyList<PublishedPost> Posts)> cache = [];
-    private readonly Dictionary<string, (DateTimeOffset Time, BlogCheck Result)> confirmed = [];
-    private readonly Dictionary<WheelBrand, (DateTimeOffset Time, IReadOnlyList<RecentBlogPost> Posts)> recent = [];
-    public Task<IReadOnlyList<RecentBlogPost>> RecentFreshAsync(WheelBrand brand, CancellationToken ct) { recent.Remove(brand); return RecentAsync(brand, ct); }
-    public Task<IReadOnlyList<RecentBlogPost>> RecentFreshAsync(WheelBrand brand, CancellationToken ct, IProgress<string>? progress) { recent.Remove(brand); return RecentAsync(brand, ct, progress); }
+    private readonly ConcurrentDictionary<WheelBrand, (DateTimeOffset Time, IReadOnlyList<PublishedPost> Posts)> cache = new();
+    private readonly ConcurrentDictionary<string, (DateTimeOffset Time, BlogCheck Result)> confirmed = new();
+    private readonly ConcurrentDictionary<WheelBrand, (DateTimeOffset Time, IReadOnlyList<RecentBlogPost> Posts)> recent = new();
+    public Task<IReadOnlyList<RecentBlogPost>> RecentFreshAsync(WheelBrand brand, CancellationToken ct) { recent.TryRemove(brand, out _); return RecentAsync(brand, ct); }
+    public Task<IReadOnlyList<RecentBlogPost>> RecentFreshAsync(WheelBrand brand, CancellationToken ct, IProgress<string>? progress) { recent.TryRemove(brand, out _); return RecentAsync(brand, ct, progress); }
     public Task<IReadOnlyList<RecentBlogPost>> RecentAsync(WheelBrand brand, CancellationToken ct) => RecentAsync(brand, ct, null);
     private async Task<IReadOnlyList<RecentBlogPost>> RecentAsync(WheelBrand brand, CancellationToken ct, IProgress<string>? progress)
     {
         if (recent.TryGetValue(brand, out var snapshot) && DateTimeOffset.UtcNow - snapshot.Time < TimeSpan.FromMinutes(15)) return snapshot.Posts;
         var host = brand switch { WheelBrand.JR => "jr-wheels.com", WheelBrand.Concaver => "concaverwheels.com", _ => "vesserforged.com" };
-        var page = new Uri($"https://{host}/blog"); var listing = Document(await client.GetAsync(page, false, ct));
+        var page = new Uri($"https://{host}/blog"); progress?.Report("Ostatnie wpisy — lista: " + page.AbsoluteUri); var listing = Document(await client.GetAsync(page, false, ct));
         var urls = BlogLinks(listing, page).Where(u => !IsList(u)).Take(10).ToArray();
         if (urls.Length == 0) throw new InvalidOperationException("Nie rozpoznano ostatnich wpisów /blog. Sugestie są niedostępne.");
         var posts = new List<RecentBlogPost>();
@@ -48,13 +49,13 @@ public sealed class BlogPublicationChecker(SiteClient client, string? archiveCac
     public Task<BlogCheck> CheckFreshAsync(Gallery gallery, CancellationToken ct)
     {
         InvalidateArchive(gallery.Brand);
-        foreach (var key in confirmed.Keys.Where(key => key.StartsWith(gallery.Brand + ":", StringComparison.Ordinal)).ToArray()) confirmed.Remove(key);
+        foreach (var key in confirmed.Keys.Where(key => key.StartsWith(gallery.Brand + ":", StringComparison.Ordinal)).ToArray()) confirmed.TryRemove(key, out _);
         return CheckAsync(gallery, ct);
     }
     public async Task PrepareArchiveAsync(WheelBrand brand, CancellationToken ct)
     {
         InvalidateArchive(brand);
-        foreach (var key in confirmed.Keys.Where(key => key.StartsWith(brand + ":", StringComparison.Ordinal)).ToArray()) confirmed.Remove(key);
+        foreach (var key in confirmed.Keys.Where(key => key.StartsWith(brand + ":", StringComparison.Ordinal)).ToArray()) confirmed.TryRemove(key, out _);
         var posts = await LoadArchiveAsync(brand, null, ct);
         await SaveArchiveAsync(brand, DateTimeOffset.UtcNow, posts, ct);
     }
@@ -74,7 +75,7 @@ public sealed class BlogPublicationChecker(SiteClient client, string? archiveCac
     }
     private void InvalidateArchive(WheelBrand brand)
     {
-        cache.Remove(brand); ignoredDiskBrands.Add(brand);
+        cache.TryRemove(brand, out _); ignoredDiskBrands[brand] = true;
         if (archiveCacheDirectory == null) return;
         try { File.Delete(Path.Combine(archiveCacheDirectory, brand + ".json")); }
         catch (IOException) { }
@@ -83,7 +84,7 @@ public sealed class BlogPublicationChecker(SiteClient client, string? archiveCac
     private SavedArchive? RecentArchive(WheelBrand brand)
     {
         if (cache.TryGetValue(brand, out var memory) && IsRecent(memory.Time)) return new(1, memory.Time, memory.Posts);
-        if (archiveCacheDirectory == null || ignoredDiskBrands.Contains(brand)) return null;
+        if (archiveCacheDirectory == null || ignoredDiskBrands.ContainsKey(brand)) return null;
         try
         {
             var path = Path.Combine(archiveCacheDirectory, brand + ".json");
@@ -109,7 +110,7 @@ public sealed class BlogPublicationChecker(SiteClient client, string? archiveCac
         {
             Directory.CreateDirectory(archiveCacheDirectory);
             await File.WriteAllTextAsync(temp, System.Text.Json.JsonSerializer.Serialize(new SavedArchive(1, time, posts)), ct);
-            File.Move(temp, path, true); ignoredDiskBrands.Remove(brand);
+            File.Move(temp, path, true); ignoredDiskBrands.TryRemove(brand, out _);
         }
         catch (IOException) { /* Disk cache is optional; verified in-memory results remain usable. */ }
         catch (UnauthorizedAccessException) { }

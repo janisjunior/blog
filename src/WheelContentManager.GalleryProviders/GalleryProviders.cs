@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Text.Json;
 using HtmlAgilityPack;
@@ -21,9 +22,8 @@ public sealed class SourceProfile
 }
 public sealed class SiteClient(HttpClient http)
 {
-    private readonly SemaphoreSlim gate = new(1, 1);
-    private DateTime lastRequest;
-    private readonly Dictionary<string, string> robots = [];
+    private sealed class HostState { public SemaphoreSlim Gate { get; } = new(1, 1); public DateTime LastRequest; public string? Robots; }
+    private readonly ConcurrentDictionary<string, HostState> hosts = new(StringComparer.OrdinalIgnoreCase);
     private async Task<string> DownloadAsync(Uri uri, CancellationToken ct)
     {
         for (int i = 0; ; i++)
@@ -57,16 +57,18 @@ public sealed class SiteClient(HttpClient http)
     public async Task<string> GetAsync(Uri uri, bool javascript, CancellationToken ct)
     {
         if (uri.Scheme != "https") throw new InvalidOperationException("Źródła muszą korzystać z HTTPS.");
-        await gate.WaitAsync(ct);
+        var hostState = hosts.GetOrAdd(uri.Host, _ => new());
+        await hostState.Gate.WaitAsync(ct);
         try
         {
-            var delay = TimeSpan.FromSeconds(1) - (DateTime.UtcNow - lastRequest); if (delay > TimeSpan.Zero) await Task.Delay(delay, ct);
-            if (!robots.TryGetValue(uri.Host, out var rules))
+            var delay = TimeSpan.FromSeconds(1) - (DateTime.UtcNow - hostState.LastRequest); if (delay > TimeSpan.Zero) await Task.Delay(delay, ct);
+            var rules = hostState.Robots;
+            if (rules == null)
             {
                 using var r = await http.GetAsync(new Uri(uri, "/robots.txt"), ct);
                 if (r.StatusCode == HttpStatusCode.NotFound) rules = "";
                 else { if (!r.IsSuccessStatusCode) throw new InvalidOperationException($"Nie można sprawdzić robots.txt: HTTP {(int)r.StatusCode}."); rules = await r.Content.ReadAsStringAsync(ct); }
-                robots[uri.Host] = rules;
+                hostState.Robots = rules;
             }
             if (!RobotsAllowed(rules, uri.PathAndQuery)) throw new InvalidOperationException("robots.txt nie zezwala na pobranie tej strony.");
             string html;
@@ -86,7 +88,7 @@ public sealed class SiteClient(HttpClient http)
             return html;
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested) { throw new InvalidOperationException($"Przekroczono czas oczekiwania na {uri.Host}. Spróbuj ponownie; nie można potwierdzić kompletności źródła."); }
-        finally { lastRequest = DateTime.UtcNow; gate.Release(); }
+        finally { hostState.LastRequest = DateTime.UtcNow; hostState.Gate.Release(); }
     }
 }
 public abstract class ProfileGalleryProvider(SiteClient client, string profilesFolder) : IGalleryProvider

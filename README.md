@@ -1,4 +1,4 @@
-# WT - Blog Generator 0.7.4
+# WT - Blog Generator 0.7.5
 
 Program do wybierania galerii JR Wheels, Concaver Wheels i Vesser Forged oraz przygotowywania kompletnych plików do własnego czatu ChatGPT. Jasny panel: wybór marki, lista galerii, podgląd zdjęcia i zapis pliku. Bez importowania odpowiedzi, zatwierdzania artykułów i płatnego API. Może przygotować cotygodniowe paczki w tle i wysłać je przez Twoją pocztę SMTP.
 
@@ -37,7 +37,7 @@ Termin wysyłki to **piątek 12:00 Europe/Warsaw**, również po zmianie czasu l
 
 Komputer musi być włączony, użytkownik zalogowany i internet dostępny. Pominięty termin zostaje nadrobiony po uruchomieniu; aplikacja na komputerze nie wysyła maili, gdy komputer jest wyłączony. Windows ma również zadanie kontrolne co 15 minut i po zalogowaniu; właściwy termin i strefę wyznacza program. Aplikacja sprawdza termin co 30 sekund. Błędy przygotowania są ponawiane po 15 minutach albo po użyciu **Wznów**.
 
-**Wyślij 3 paczki teraz** pozwala wysłać przygotowany zestaw od razu na zapisany adres, także przy wyłączonej wysyłce automatycznej. Przycisk jest aktywny po przygotowaniu wszystkich trzech paczek i zakończeniu innych operacji. Przed wysłaniem program sprawdza blogi. Postęp pokazuje markę, numer wpisu i aktualny adres. Gdy 15-minutowa pamięć treści wygasła, pełna kontrola może trwać kilka minut. Kontrola ma łączny limit 10 minut; po jego przekroczeniu wiadomość nie jest wysyłana, a komunikat wskazuje ostatni etap. Po poprawnym sprawdzeniu pojawia się oddzielny etap SMTP. Zestaw wysłany ręcznie nie zostaje wysłany ponownie w piątek.
+**Wyślij 3 paczki teraz** pozwala wysłać przygotowany zestaw od razu na zapisany adres, także przy wyłączonej wysyłce automatycznej. Przycisk jest aktywny po przygotowaniu wszystkich trzech paczek i zakończeniu innych operacji. Przed wysłaniem program sprawdza blogi. Kontrole JR, Concaver i Vesser działają równolegle; program czeka na zakończenie wszystkich trzech. Postęp pokazuje osobno każdą markę, numer wpisu i aktualny adres. Każda domena zachowuje przerwę co najmniej jednej sekundy między pobraniami. Gdy 15-minutowa pamięć treści wygasła, pełna kontrola może trwać kilka minut. Kontrola ma łączny limit 10 minut; po jego przekroczeniu wiadomość nie jest wysyłana, a komunikat wskazuje ostatni etap. Po poprawnym sprawdzeniu pojawia się oddzielny etap SMTP. Zestaw wysłany ręcznie nie zostaje wysłany ponownie w piątek.
 
 Mail zawiera klikalne linki do każdej galerii i do nowego czatu na https://chatgpt.com/, jeden ZIP z trzema folderami oraz link `wtblog://weekly/[data]` do otwarcia zainstalowanej aplikacji. Część klientów pocztowych nie obsługuje takich linków; wtedy użyj załącznika lub otwórz program ze skrótu. Program zapisuje stan wysyłki. Utrata odpowiedzi SMTP nie powoduje automatycznej ponownej wysyłki: sprawdź skrzynkę i w ustawieniach poczty potwierdź odbiór albo świadomie zleć ponowienie.
 

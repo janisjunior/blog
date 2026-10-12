@@ -87,7 +87,7 @@ public class WeeklyPromptTests
         await service.TickAsync(Monday);
         env.Blog.Result = new(true, false, "https://fixture.example/blog/new", "Nowy wpis");
         await service.TickAsync(Monday.AddHours(6));
-        Assert.Equal(2, (await service.BatchesAsync()).Single().Items.Count); Assert.Equal(0, mailer.Calls);
+        Assert.Empty((await service.BatchesAsync()).Single().Items); Assert.Equal(0, mailer.Calls);
     }
     [Fact] public async Task FailedBrandDoesNotBlockOtherTwoPackagesOrSendPartialMail()
     {
@@ -155,7 +155,7 @@ public class WeeklyPromptTests
         await using var env = await TestEnvironment.CreateAsync(); var mailer = new Mailer(); var service = await Service(env, mailer);
         await service.TickAsync(Monday); var batch = Assert.Single(await service.BatchesAsync());
         var progress = new CaptureProgress(); await service.SendNowAsync(batch.Key, Monday.AddMinutes(1), progress: progress);
-        foreach (var brand in Enum.GetValues<WheelBrand>()) Assert.Contains(progress.Messages, m => m.StartsWith(brand.Name()));
+        foreach (var brand in Enum.GetValues<WheelBrand>()) Assert.Contains(progress.Messages, m => m.Contains(brand.Name() + " —"));
         Assert.Contains("SMTP", progress.Messages.Last()); Assert.Equal(1, mailer.Calls);
     }
     [Fact] public async Task SlowBlogCheckTimesOutBeforeMailAndPreservesPendingBatch()
@@ -168,6 +168,28 @@ public class WeeklyPromptTests
         Assert.Contains("limit czasu", error.Message); Assert.Contains("Mail nie został wysłany", error.Message);
         Assert.Equal(0, mailer.Calls); var saved = Assert.Single(await service.BatchesAsync()); Assert.Equal("Pending", saved.MailState); Assert.Null(saved.LastMailAttempt);
         Assert.False(OperationSession.IsRunning(env.Services.GetRequiredService<AppPaths>()));
+    }
+    [Fact] public async Task DeliveryChecksAllBrandsConcurrentlyAndWaitsForAllBeforeMail()
+    {
+        await using var env = await TestEnvironment.CreateAsync(); var mailer = new Mailer(); var service = await Service(env, mailer);
+        await service.TickAsync(Monday); var batch = Assert.Single(await service.BatchesAsync());
+        var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); var brands = new System.Collections.Concurrent.ConcurrentDictionary<WheelBrand, bool>();
+        env.Blog.BeforeRecent = async (brand, ct) => { brands[brand] = true; if (brands.Count == 3) reached.TrySetResult(); await release.Task.WaitAsync(ct); };
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var sending = service.SendNowAsync(batch.Key, Monday.AddMinutes(1), timeout.Token);
+        try { await reached.Task.WaitAsync(timeout.Token); Assert.Equal(3, brands.Count); Assert.Equal(0, mailer.Calls); }
+        finally { release.TrySetResult(); await sending; }
+        Assert.Equal(1, mailer.Calls);
+    }
+    [Fact] public async Task OneFailedParallelBrandPreventsMailAndCanBeRetried()
+    {
+        await using var env = await TestEnvironment.CreateAsync(); var mailer = new Mailer(); var service = await Service(env, mailer);
+        await service.TickAsync(Monday); var batch = Assert.Single(await service.BatchesAsync()); env.Blog.RecentFailure = WheelBrand.JR;
+        await Assert.ThrowsAsync<HttpRequestException>(() => service.SendNowAsync(batch.Key, Monday.AddMinutes(1)));
+        Assert.Equal(0, mailer.Calls); Assert.Equal("Pending", (await service.BatchesAsync()).Single().MailState);
+        Assert.False(OperationSession.IsRunning(env.Services.GetRequiredService<AppPaths>()));
+        env.Blog.RecentFailure = null; await service.SendNowAsync(batch.Key, Monday.AddMinutes(2)); Assert.Equal(1, mailer.Calls);
     }
     [Fact] public void WindowsTaskCallsOnlyPromptWorkflowAndCatchesMissedTriggers()
     {
